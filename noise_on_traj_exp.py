@@ -4,6 +4,7 @@ import time
 import os
 import argparse
 import random
+import numpy as np
 
 
 
@@ -21,7 +22,8 @@ class AttackExperiment(Trainer):
                  sample_size = 70, reg_noise=0.5, reg_w=1, attacker_model_name='attacker.state',
                  discriminator_model_name='discriminator.state', collision_type = 'hard',
                  perturb_all = 'true', threads_limit = 4, speed_up='false', saving_name="", enable_thread='true',
-                 output_dir='./out/'):
+                 output_dir='./out/',
+                 sigmas = np.array([0.05])):
         super().__init__(model=model, criterion=criterion, lr=lr, barrier=barrier, show_limit=show_limit,
                  device=device, batch_size=batch_size, obs_length=obs_length, pred_length=pred_length, augment=augment,
                  normalize_scene=normalize_scene, save_every=save_every, start_length=start_length, obs_dropout=obs_dropout,
@@ -29,6 +31,7 @@ class AttackExperiment(Trainer):
                  discriminator_model_name=discriminator_model_name, collision_type = collision_type,
                  perturb_all = perturb_all, threads_limit = threads_limit, speed_up=speed_up, saving_name=saving_name, enable_thread=enable_thread,
                  output_dir=output_dir)
+        self.sigmas = sigmas
         
 
     #overwritting existing method
@@ -194,7 +197,7 @@ class AttackExperiment(Trainer):
             #NEW HERE
             self.add_noise_on_perturbed(
                 perturbed_observation, goals, batch_split, 
-                local_model, scene_id, collision_done_barrier = collision_done_barrier
+                local_model, scene_id, collision_done_barrier = collision_done_barrier,
             )
         else:
             self.fail_counter += 1
@@ -236,57 +239,61 @@ class AttackExperiment(Trainer):
     
     def add_noise_on_perturbed(
             self, perturbed_observation, goals, batch_split, 
-            local_model, scene_id, N_noisy = 100, time_mod_from_end = 3, sigma = 0.05, collision_done_barrier=0.2,
+            local_model, scene_id, N_noisy = 100, time_mod_from_end = 3, collision_done_barrier=0.2,
         ):
         #print("here")
         with torch.no_grad():
-            col = 0
-            once = True
             _, out_original = local_model(
                     perturbed_observation, goals.clone(), batch_split, n_predict=12
                 )
-            for n in range(N_noisy):
-                noise = perturbed_observation.detach().clone().normal_(mean = 0, std = sigma)
-                noise[:,1:,:] = 0 #modify only agent 0
-                noise[:-time_mod_from_end,:,:] = 0 #add noise only on last timestep
+            for sigma in self.sigmas:
+                sigma = np.round(sigma, 2)
+                nb_col = 0
+                once = False #disable figure drawing
+                for n in range(N_noisy):
+                    noise = perturbed_observation.detach().clone().normal_(mean = 0, std = sigma)
+                    noise[:,1:,:] = 0 #modify only agent 0
+                    noise[:-time_mod_from_end,:,:] = 0 #add noise only on last timestep
+                    noisy_observation = perturbed_observation + noise
 
-                noisy_observation = perturbed_observation + noise
-                #run the model
-                _, outputs_perturbed = local_model(
-                    noisy_observation, goals.clone(), batch_split, n_predict=12
-                )
+                    #run the model
+                    _, outputs_perturbed = local_model(
+                        noisy_observation, goals.clone(), batch_split, n_predict=12
+                    )
 
-                
-                
-                # Each Neighbors Distance to The Main Agent
-                agents_count = len(perturbed_observation[0])
-                distances = torch.sqrt(torch.sum((torch.square(outputs_perturbed[-self.pred_length:]
-                                    - outputs_perturbed[-self.pred_length:, 0].repeat_interleave(agents_count, 0).reshape(
-                                    self.pred_length, agents_count, 2))[:, 1:]), dim=2))
+                    # Each Neighbors Distance to The Main Agent
+                    agents_count = len(perturbed_observation[0])
+                    distances = torch.sqrt(torch.sum((torch.square(outputs_perturbed[-self.pred_length:]
+                                        - outputs_perturbed[-self.pred_length:, 0].repeat_interleave(agents_count, 0).reshape(
+                                        self.pred_length, agents_count, 2))[:, 1:]), dim=2))
 
-                # Score
-                score = torch.min(distances).data
+                    # Score
+                    score = torch.min(distances).data
+                    
+                    #check if collision
+                    if (score < collision_done_barrier):
+                        nb_col += 1
+                    else : #no colision
+                        if once : 
+                            filename = self.output_dir + str(scene_id) + '_with_noise_' + str(sigma) + '.png'
+                            
+                            perturb = torch.cat((perturbed_observation[: self.obs_length], out_original[-self.pred_length:]))
+                            real = torch.cat((noisy_observation[: self.obs_length], outputs_perturbed[-self.pred_length:]))
+                            frame_index = (torch.argmin(distances) // (agents_count - 1)).data - self.pred_length
+                            neighbor_index =  (torch.argmin(distances) % (agents_count - 1) + 1).data
+                            
+                            draw_two_tensor(
+                                filename, real, perturb, outputs_perturbed[frame_index, 0].tolist()
+                                    , outputs_perturbed[frame_index, neighbor_index].tolist()
+                            )
+    
+                            once = False
+                print(f"\n Number of colision with noise (sigma = {sigma}) added {N_noisy}"  
+                    f"times : {nb_col} -> no_col_accuracy { (1-nb_col/N_noisy)*100:.2f}%")
                 
-                #check if collision
-                if (score < collision_done_barrier):
-                    col += 1
-                else : #no colision
-                    if once : 
-                        filename = self.output_dir + str(scene_id) + '_with_noise_' + str(sigma) + '.png'
-                        
-                        perturb = torch.cat((perturbed_observation[: self.obs_length], out_original[-self.pred_length:]))
-                        real = torch.cat((noisy_observation[: self.obs_length], outputs_perturbed[-self.pred_length:]))
-                        frame_index = (torch.argmin(distances) // (agents_count - 1)).data - self.pred_length
-                        neighbor_index =  (torch.argmin(distances) % (agents_count - 1) + 1).data
-                        
-                        draw_two_tensor(
-                            filename, real, perturb, outputs_perturbed[frame_index, 0].tolist()
-                                , outputs_perturbed[frame_index, neighbor_index].tolist()
-                        )
- 
-                        once = False
-            print(f"\n Number of colision with noise (sigma = {sigma}) added {N_noisy}"  
-                  f"times : {col} -> no_col_accuracy { (1-col/N_noisy)*100:.2f}%")
+                #record results
+                with open(self.output_dir + "00_results" + ".txt" ,"a+") as f:
+                    f.write(str(scene_id) + "\t" + str(sigma) + "\t" + str(nb_col) + "\n")
             
 
             
@@ -484,14 +491,16 @@ def main(epochs=10):
     saving_name = str(args.type) + "-" + str(args.collision_type) + "-noise-"  + str(args.reg_noise) + "-w-" + str(args.reg_w) + "-barrier-" + str(args.barrier)
 
     #here new model
+    sigmas = np.linspace(0.01, 0.13,7)
     trainer = AttackExperiment(model, lr=args.lr, device=args.device, barrier=args.barrier, show_limit=args.show_limit,
-                      criterion=args.loss, collision_type = args.collision_type,
-                      obs_length=args.obs_length, reg_noise = args.reg_noise, reg_w = args.reg_w,
-                      pred_length=args.pred_length, augment=args.augment, normalize_scene=args.normalize_scene,
-                      start_length=args.start_length, obs_dropout=args.obs_dropout,
-                      sample_size = args.sample_size, perturb_all = args.perturb_all, threads_limit=args.threads_limit,
-                      speed_up=args.speed_up, saving_name=saving_name, enable_thread=args.enable_thread,
-                      output_dir=args.output)
+                    criterion=args.loss, collision_type = args.collision_type,
+                    obs_length=args.obs_length, reg_noise = args.reg_noise, reg_w = args.reg_w,
+                    pred_length=args.pred_length, augment=args.augment, normalize_scene=args.normalize_scene,
+                    start_length=args.start_length, obs_dropout=args.obs_dropout,
+                    sample_size = args.sample_size, perturb_all = args.perturb_all, threads_limit=args.threads_limit,
+                    speed_up=args.speed_up, saving_name=saving_name, enable_thread=args.enable_thread,
+                    output_dir=args.output,
+                    sigmas=sigmas)
     trainer.attack(test_scenes, test_goals)
     trainer.numerical_stats()
     
