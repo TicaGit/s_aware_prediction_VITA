@@ -249,7 +249,7 @@ class AttackExperiment(Trainer):
             for sigma in self.sigmas:
                 sigma = np.round(sigma, 2)
                 nb_col = 0
-                once = False #disable figure drawing
+                num_draw = 0 #no drawing by default
                 for n in range(N_noisy):
                     noise = perturbed_observation.detach().clone().normal_(mean = 0, std = sigma)
                     noise[:,1:,:] = 0 #modify only agent 0
@@ -271,23 +271,30 @@ class AttackExperiment(Trainer):
                     score = torch.min(distances).data
                     
                     #check if collision
-                    if (score < collision_done_barrier):
+                    is_col = (score < collision_done_barrier)
+                    if is_col:
+                        word = "col_"
                         nb_col += 1
                     else : #no colision
-                        if once : 
-                            filename = self.output_dir + str(scene_id) + '_with_noise_' + str(sigma) + '.png'
-                            
-                            perturb = torch.cat((perturbed_observation[: self.obs_length], out_original[-self.pred_length:]))
-                            real = torch.cat((noisy_observation[: self.obs_length], outputs_perturbed[-self.pred_length:]))
-                            frame_index = (torch.argmin(distances) // (agents_count - 1)).data - self.pred_length
-                            neighbor_index =  (torch.argmin(distances) % (agents_count - 1) + 1).data
-                            
-                            draw_two_tensor(
-                                filename, real, perturb, outputs_perturbed[frame_index, 0].tolist()
-                                    , outputs_perturbed[frame_index, neighbor_index].tolist()
-                            )
-    
-                            once = False
+                        word = "no_col_"
+                        pass
+                    #draw the first
+                    if n < num_draw:
+                        
+                        filename = self.output_dir + str(scene_id) + '_with_noise_' + \
+                                   str(sigma) + "_" + word + str(n) + '.png'
+                        
+                        perturb = torch.cat((perturbed_observation[: self.obs_length], out_original[-self.pred_length:]))
+                        real = torch.cat((noisy_observation[: self.obs_length], outputs_perturbed[-self.pred_length:]))
+                        frame_index = (torch.argmin(distances) // (agents_count - 1)).data - self.pred_length
+                        neighbor_index =  (torch.argmin(distances) % (agents_count - 1) + 1).data
+                        
+                        draw_two_tensor(
+                            filename, real, perturb, outputs_perturbed[frame_index, 0].tolist()
+                                , outputs_perturbed[frame_index, neighbor_index].tolist()
+                        )
+
+
                 print(f"\n Number of colision with noise (sigma = {sigma}) added {N_noisy}"  
                     f"times : {nb_col} -> no_col_accuracy { (1-nb_col/N_noisy)*100:.2f}%")
                 

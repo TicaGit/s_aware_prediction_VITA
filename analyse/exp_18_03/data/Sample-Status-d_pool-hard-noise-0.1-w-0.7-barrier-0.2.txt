@@ -1,0 +1,151 @@
+Sample 1 Collided.
+Collision Ratio After 0 Sample: 0.9900990099009901
+Sample 2 Collided.
+Collision Ratio After 1 Sample: 0.9950248756218907
+Sample 3 Collided.
+Collision Ratio After 2 Sample: 0.9966777408637875
+Sample 4 Collided.
+Collision Ratio After 3 Sample: 0.9975062344139651
+Sample 5 Collided.
+Collision Ratio After 4 Sample: 0.9980039920159681
+Collision Ratio After 5 Sample: 0.9980039920159681
+Sample 6 Collided.
+Collision Ratio After 6 Sample: 0.9983361064891847
+Sample 7 Collided.
+Collision Ratio After 7 Sample: 0.9985734664764623
+Sample 8 Collided.
+Collision Ratio After 8 Sample: 0.9987515605493134
+Sample 9 Collided.
+Collision Ratio After 9 Sample: 0.9988901220865705
+Sample 10 Collided.
+Collision Ratio After 10 Sample: 0.999000999000999
+Sample 11 Collided.
+Collision Ratio After 11 Sample: 0.9990917347865577
+Sample 12 Collided.
+Collision Ratio After 12 Sample: 0.9991673605328892
+Sample 13 Collided.
+Collision Ratio After 13 Sample: 0.9992313604919293
+Sample 14 Failed.
+Collision Ratio After 14 Sample: 0.92790863668808
+Sample 15 Collided.
+Collision Ratio After 15 Sample: 0.9327115256495669
+Sample 16 Collided.
+Collision Ratio After 16 Sample: 0.9369144284821985
+Sample 17 Collided.
+Collision Ratio After 17 Sample: 0.9406231628453849
+Sample 18 Collided.
+Collision Ratio After 18 Sample: 0.9439200444197667
+Sample 19 Failed.
+Collision Ratio After 19 Sample: 0.8942661756970015
+Sample 20 Collided.
+Collision Ratio After 20 Sample: 0.8995502248875562
+Sample 21 Collided.
+Collision Ratio After 21 Sample: 0.9043312708234174
+Sample 22 Collided.
+Collision Ratio After 22 Sample: 0.9086778736937755
+Sample 23 Collided.
+Collision Ratio After 23 Sample: 0.9126466753585397
+Sample 24 Collided.
+Collision Ratio After 24 Sample: 0.9162848812994585
+Sample 25 Collided.
+Collision Ratio After 25 Sample: 0.9196321471411435
+Sample 26 Collided.
+Collision Ratio After 26 Sample: 0.9227220299884659
+Sample 27 Collided.
+Collision Ratio After 27 Sample: 0.9255831173639393
+Sample 28 Collided.
+Collision Ratio After 28 Sample: 0.9282399143163156
+Sample 29 Failed.
+Collision Ratio After 29 Sample: 0.8962426749396759
+Sample 30 Collided.
+Collision Ratio After 30 Sample: 0.8997000999666778
+Sample 31 Failed.
+Collision Ratio After 31 Sample: 0.8706868752015479
+Sample 32 Collided.
+Collision Ratio After 32 Sample: 0.8747266479225243
+Sample 33 Collided.
+Collision Ratio After 33 Sample: 0.8785216601029991
+Sample 34 Collided.
+Collision Ratio After 34 Sample: 0.8820935019112026
+Sample 35 Collided.
+Collision Ratio After 35 Sample: 0.8854612967723509
+Sample 36 Collided.
+Collision Ratio After 36 Sample: 0.888642043876701
+Sample 37 Collided.
+Collision Ratio After 37 Sample: 0.8916509051607674
+Sample 38 Collided.
+Collision Ratio After 38 Sample: 0.8945014469876349
+Sample 39 Collided.
+Collision Ratio After 39 Sample: 0.8972058446552167
+Sample 40 Collided.
+Collision Ratio After 40 Sample: 0.899775056235941
+Sample 41 Failed.
+Collision Ratio After 41 Sample: 0.8778346744696416
+Sample 42 Collided.
+Collision Ratio After 42 Sample: 0.880742680314211
+Sample 43 Collided.
+Collision Ratio After 43 Sample: 0.8835154615205767
+Sample 44 Collided.
+Collision Ratio After 44 Sample: 0.8861622358554875
+Sample 45 Collided.
+Collision Ratio After 45 Sample: 0.8886914019106865
+Sample 46 Collided.
+Collision Ratio After 46 Sample: 0.8911106281243208
+Sample 47 Collided.
+Collision Ratio After 47 Sample: 0.8934269304403318
+Sample 48 Collided.
+Collision Ratio After 48 Sample: 0.8956467402624454
+Sample 49 Collided.
+Collision Ratio After 49 Sample: 0.8977759640889614
+Sample 50 Collided.
+Collision Ratio After 50 Sample: 0.8998200359928015
+Collision Ratio After 51 Sample: 0.9017839639286415
+Collision Ratio After 52 Sample: 0.9036723706979427
+Collision Ratio After 53 Sample: 0.8866251650631957
+Collision Ratio After 54 Sample: 0.888724310312905
+Collision Ratio After 55 Sample: 0.8907471368842029
+Collision Ratio After 56 Sample: 0.8926977325477594
+Collision Ratio After 57 Sample: 0.8945798982634626
+Collision Ratio After 58 Sample: 0.896397172901224
+Collision Ratio After 59 Sample: 0.8981528554482291
+Collision Ratio After 60 Sample: 0.8831861356440593
+Collision Ratio After 61 Sample: 0.8687100475331913
+Collision Ratio After 62 Sample: 0.8547008547008548
+Collision Ratio After 63 Sample: 0.8570068243136011
+Collision Ratio After 64 Sample: 0.843618184658647
+Collision Ratio After 65 Sample: 0.843618184658647
+Collision Ratio After 66 Sample: 0.8460236886632825
+Collision Ratio After 67 Sample: 0.8483563096500529
+Collision Ratio After 68 Sample: 0.850619310550664
+Collision Ratio After 69 Sample: 0.8381120423467137
+Collision Ratio After 70 Sample: 0.8404579046514997
+Collision Ratio After 71 Sample: 0.8427367518925867
+Collision Ratio After 72 Sample: 0.8449514152936206
+Collision Ratio After 73 Sample: 0.8471045688098875
+Collision Ratio After 74 Sample: 0.835501986029311
+Collision Ratio After 75 Sample: 0.8242129441967301
+Collision Ratio After 76 Sample: 0.8265564591387814
+Collision Ratio After 77 Sample: 0.8288383107485856
+Collision Ratio After 78 Sample: 0.8310609011816646
+Collision Ratio After 79 Sample: 0.8332265094218689
+Collision Ratio After 80 Sample: 0.8353372990760662
+Collision Ratio After 81 Sample: 0.837395325584302
+Collision Ratio After 82 Sample: 0.8394025428959387
+Collision Ratio After 83 Sample: 0.8413608096573588
+Collision Ratio After 84 Sample: 0.8432718949524153
+Collision Ratio After 85 Sample: 0.8451374836329008
+Collision Ratio After 86 Sample: 0.8351958593106693
+Collision Ratio After 87 Sample: 0.8371119637251482
+Collision Ratio After 88 Sample: 0.8274910929778186
+Collision Ratio After 89 Sample: 0.8180888535393704
+Collision Ratio After 90 Sample: 0.8201325693742275
+Collision Ratio After 91 Sample: 0.8221308743472947
+Collision Ratio After 92 Sample: 0.8130974618173826
+Collision Ratio After 93 Sample: 0.8151287903488751
+Collision Ratio After 94 Sample: 0.8171164390925707
+Collision Ratio After 95 Sample: 0.8190618019359642
+Collision Ratio After 96 Sample: 0.8209662140827281
+Collision Ratio After 97 Sample: 0.8228309551088427
+Collision Ratio After 98 Sample: 0.8246572518297083
+Collision Ratio After 99 Sample: 0.8162432404856647
+Collision Ratio: 0.8162432404856647
