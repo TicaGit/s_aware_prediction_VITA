@@ -3,19 +3,16 @@ import os
 import argparse
 import random
 import torch
-from trajnetbaselines.lstm.lstm import LSTM
 
+
+from trajnetbaselines.lstm.lstm import LSTM
 from trajnetbaselines.lstm.run import Trainer, draw_one_tensor, draw_two_tensor, prepare_data
 from trajnetbaselines.lstm.utils import center_scene, random_rotation, save_log, calc_fde_ade
 from trajnetbaselines.lstm.non_gridbased_pooling import HiddenStateMLPPooling, NN_LSTM, SAttention
 
-import sys
-sys.path.append("..") # Adds higher directory to python modules path.
+from random_smooth.smooth_model import Smooth
 
-
-
-def main(epochs=10):
-
+def parse_args():
     #<------------- S-ATTack arguments ----------------#
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
     parser = argparse.ArgumentParser()
@@ -140,7 +137,11 @@ def main(epochs=10):
     hyperparameters.add_argument('--obs_dropout', action='store_true',
                                  help='obs length dropout')
     args = parser.parse_args()
+    return args
 
+def main(epochs=10):
+
+    args = parse_args()
 
     if args.sample < 1.0:
         torch.manual_seed("080819")
@@ -198,19 +199,32 @@ def main(epochs=10):
 
     print("Successfully Loaded")
 
-    # trainer
-    saving_name = str(args.type) + "-" + str(args.collision_type) + "-noise-"  + str(args.reg_noise) + "-w-" + str(args.reg_w) + "-barrier-" + str(args.barrier)
+    ### NEW ###
+    n0 = 100
+    n = 100_000
+    alpha = 0.01
+    batch_size = 64
+    sigma = 0.05
+    sample_size = 70
+    smooth_model = Smooth(model, sigma=sigma, device=args.device, sample_size = sample_size)
+    
+    smooth_model.certify_all(test_scenes, test_goals, n0, n, alpha, batch_size )
+    
+    
 
-    trainer = Trainer(model, lr=args.lr, device=args.device, barrier=args.barrier, show_limit=args.show_limit,
-                      criterion=args.loss, collision_type = args.collision_type,
-                      obs_length=args.obs_length, reg_noise = args.reg_noise, reg_w = args.reg_w,
-                      pred_length=args.pred_length, augment=args.augment, normalize_scene=args.normalize_scene,
-                      start_length=args.start_length, obs_dropout=args.obs_dropout,
-                      sample_size = args.sample_size, perturb_all = args.perturb_all, threads_limit=args.threads_limit,
-                      speed_up=args.speed_up, saving_name=saving_name, enable_thread=args.enable_thread,
-                      output_dir=args.output)
-    trainer.attack(test_scenes, test_goals)
-    trainer.numerical_stats()
+    # trainer
+    # saving_name = str(args.type) + "-" + str(args.collision_type) + "-noise-"  + str(args.reg_noise) + "-w-" + str(args.reg_w) + "-barrier-" + str(args.barrier)
+
+    # trainer = Trainer(model, lr=args.lr, device=args.device, barrier=args.barrier, show_limit=args.show_limit,
+    #                   criterion=args.loss, collision_type = args.collision_type,
+    #                   obs_length=args.obs_length, reg_noise = args.reg_noise, reg_w = args.reg_w,
+    #                   pred_length=args.pred_length, augment=args.augment, normalize_scene=args.normalize_scene,
+    #                   start_length=args.start_length, obs_dropout=args.obs_dropout,
+    #                   sample_size = args.sample_size, perturb_all = args.perturb_all, threads_limit=args.threads_limit,
+    #                   speed_up=args.speed_up, saving_name=saving_name, enable_thread=args.enable_thread,
+    #                   output_dir=args.output)
+    # trainer.attack(test_scenes, test_goals)
+    # trainer.numerical_stats()
 
 
 if __name__ == '__main__':
