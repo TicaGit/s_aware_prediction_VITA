@@ -198,6 +198,7 @@ class AttackExperiment(Trainer):
             self.add_noise_on_perturbed(
                 perturbed_observation, goals, batch_split, 
                 local_model, scene_id, collision_done_barrier = collision_done_barrier,
+                no_noise_on_last = True,
             )
         else:
             self.fail_counter += 1
@@ -240,6 +241,7 @@ class AttackExperiment(Trainer):
     def add_noise_on_perturbed(
             self, perturbed_observation, goals, batch_split, 
             local_model, scene_id, N_noisy = 100, time_mod_from_end = 3, collision_done_barrier=0.2,
+            no_noise_on_last = False
         ):
         #print("here")
         with torch.no_grad():
@@ -249,11 +251,13 @@ class AttackExperiment(Trainer):
             for sigma in self.sigmas:
                 sigma = np.round(sigma, 2)
                 nb_col = 0
-                num_draw = 0 #no drawing by default
+                num_draw = 1 #no drawing by default
                 for n in range(N_noisy):
                     noise = perturbed_observation.detach().clone().normal_(mean = 0, std = sigma)
                     noise[:,1:,:] = 0 #modify only agent 0
                     noise[:-time_mod_from_end,:,:] = 0 #add noise only on last timestep
+                    if no_noise_on_last:
+                        noise[-1,:,:] = 0 
                     noisy_observation = perturbed_observation + noise
 
                     #run the model
@@ -507,7 +511,7 @@ def main(epochs=10):
                     sample_size = args.sample_size, perturb_all = args.perturb_all, threads_limit=args.threads_limit,
                     speed_up=args.speed_up, saving_name=saving_name, enable_thread=args.enable_thread,
                     output_dir=args.output,
-                    sigmas=sigmas)
+                    sigmas=sigmas) #new
     trainer.attack(test_scenes, test_goals)
     trainer.numerical_stats()
     

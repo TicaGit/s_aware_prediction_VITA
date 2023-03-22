@@ -1,0 +1,1 @@
+run on all scene with different noise level, record number of colision over 100 noisy sample
