@@ -98,15 +98,18 @@ class Smooth(object):
         with open(filename_results, "w+") as f:
             f.write("scene_id \t sigma \t col \t r \n")
 
-
-        for i in tqdm(range(min(len(all_data),self.sample_size))):
+        start = 12
+        for i in tqdm(range(start, min(len(all_data),self.sample_size))):
             x = all_data[i]
             scene_id = x[0]
             scene = x[1]
             scene_goal = x[2]
             batch_split = torch.Tensor([0,scene.size(1)]).to(self.device).long()
 
-            #visualize_scene(scene)
+            # print(scene)
+            # print(i, scene_id)
+            visualize_scene(scene)
+            #breakpoint()
 
             col, r = self.certify_scene(scene, scene_goal, batch_split)
             log(filename_results, scene_id, self.sigma, col, r)
