@@ -110,7 +110,7 @@ class Smooth(object):
             #breakpoint()
 
 
-    def certify_scene(self, observed: torch.tensor, goals: torch.tensor, batch_split) -> tuple[int, float]:
+    def certify_scene(self, observed: torch.tensor, goals: torch.tensor, batch_split):
         """ Monte Carlo algorithm for certifying that g's prediction around x is constant within some L2 radius.
         With probability at least 1 - alpha, the class returned by this method will equal g(x), and g's prediction will
         robust within a L2 ball of radius R around x.
