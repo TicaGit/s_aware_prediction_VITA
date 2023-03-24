@@ -200,15 +200,23 @@ def main(epochs=10):
     print("Successfully Loaded")
 
     ### NEW ###
-    n0 = 100
-    n = 100_000
-    alpha = 0.01
-    batch_size = 64
+
     sigma = 0.05
     sample_size = 70
-    smooth_model = Smooth(model, sigma=sigma, device=args.device, sample_size = sample_size)
-    
-    smooth_model.certify_all(test_scenes, test_goals, n0, n, alpha, batch_size )
+    time_noise_from_end = 3
+    pred_length=args.pred_length
+    collision_treshold = 0.2 #20cm
+    smooth_model = Smooth(model, sigma=sigma, device=args.device, 
+                          sample_size = sample_size,time_noise_from_end = time_noise_from_end,
+                          pred_length = pred_length, collision_treshold = collision_treshold)
+
+    n0 = 100
+    n = 1_000
+    alpha = 0.01
+    batch_size = 64
+    n_predict = 12
+    filename = "out/results_certify_all.txt"
+    smooth_model.certify_all(test_scenes, test_goals, filename, n0, n, alpha, batch_size, n_predict)
     
     
 
