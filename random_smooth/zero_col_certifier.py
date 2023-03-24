@@ -211,7 +211,7 @@ def main(epochs=10):
                           pred_length = pred_length, collision_treshold = collision_treshold)
 
     n0 = 100
-    n = 1_000
+    n = 1000
     alpha = 0.01
     batch_size = 64
     n_predict = 12

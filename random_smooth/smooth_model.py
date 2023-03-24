@@ -6,6 +6,7 @@ from statsmodels.stats.proportion import proportion_confint
 from tqdm import tqdm
 import random
 from operator import itemgetter
+import matplotlib.pyplot as plt
 
 
 import trajnetplusplustools
@@ -66,7 +67,7 @@ class Smooth(object):
         self.batch_size = batch_size #useless !?
         self.n_predict = n_predict
 
-        random.shuffle(scenes)
+        #random.shuffle(scenes)
         check_point_size = 50
         all_data = []
 
@@ -105,6 +106,8 @@ class Smooth(object):
             scene_goal = x[2]
             batch_split = torch.Tensor([0,scene.size(1)]).to(self.device).long()
 
+            #visualize_scene(scene)
+
             col, r = self.certify_scene(scene, scene_goal, batch_split)
             log(filename_results, scene_id, self.sigma, col, r)
             #breakpoint()
@@ -124,9 +127,11 @@ class Smooth(object):
                  in the case of abstention, the class will be ABSTAIN and the radius 0.
         """
 
-        _, outputs = self.slstm(observed.clone(), goals.clone(), batch_split, n_predict=self.n_predict)
+        #_, outputs = self.slstm(observed.clone(), goals.clone(), batch_split, n_predict=self.n_predict)
         #breakpoint()
-
+        agents_count = len(observed[0])
+        if agents_count <= 1: #solo agent
+            return -1, -1
 
         #_sample_noise n0 -> pred
         # draw sample sof f(x+ epsilon)
@@ -234,7 +239,22 @@ class Smooth(object):
         :return: a lower bound on the binomial proportion which holds true w.p at least (1 - alpha) over the samples
         """
         return proportion_confint(NA, N, alpha=2 * alpha, method="beta")[0]
-    
+
+## UTILS##
+
 def log(filename, scene_id, sigma, col, r):
     with open(filename,"a+") as f:
         f.write(str(scene_id) + "\t" + str(sigma) + "\t" + str(col) + "\t" + str(r) + "\n")
+
+def visualize_scene(scene, goal=None):
+    for t in range(scene.shape[1]):
+        path = scene[:, t]
+        plt.plot(path[:, 0], path[:, 1])
+    if goal is not None:
+        for t in range(goal.shape[0]):
+            goal_t = goal[t]
+            plt.scatter(goal_t[0], goal_t[1])
+
+
+    plt.show()
+    plt.close()
