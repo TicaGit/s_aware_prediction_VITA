@@ -22,8 +22,7 @@ class Smooth(object):
     ABSTAIN = -1
 
     def __init__(self, 
-                 slstm: torch.nn.Module, 
-                 sigma: float = 0.01, 
+                 slstm: torch.nn.Module,
                  device = torch.device('cpu'), 
                  sample_size:int=70,
                  time_noise_from_end=0,
@@ -36,7 +35,6 @@ class Smooth(object):
         :param sigma: the noise level hyperparameter
         """
         self.slstm = slstm
-        self.sigma = sigma
         self.device = device
         self.sample_size = sample_size
         self.time_noise_from_end = time_noise_from_end
@@ -56,16 +54,17 @@ class Smooth(object):
       return x
 
 
-    def certify_all(self, scenes: list, goals:list, filename_results:str, n0: int, n: int, alpha: float,
-                    batch_size: int, n_predict:int =12):
+    def certify_all(self, scenes: list, goals:list, filename_results:str, 
+                    sigma:int, n0: int, n: int, 
+                    alpha: float, n_predict:int =12):
         """
         cerfify
         """
         self.n0 = n0
         self.n = n
         self.alpha = alpha
-        self.batch_size = batch_size #useless !?
         self.n_predict = n_predict
+        self.sigma = sigma 
 
         #random.shuffle(scenes)
         check_point_size = 50
@@ -134,7 +133,7 @@ class Smooth(object):
         #breakpoint()
         agents_count = len(observed[0])
         if agents_count <= 1: #solo agent
-            return -1, -1
+            return -2, -2
 
         #_sample_noise n0 -> pred
         # draw sample sof f(x+ epsilon)
@@ -191,7 +190,7 @@ class Smooth(object):
 
         #use code of add_noise_on_perturbed
 
-        #return [p(nocol), p(col)]
+        #return [nocol, col]
 
         with torch.no_grad():
             counts = np.zeros(self.num_classes, dtype=int)
@@ -210,7 +209,7 @@ class Smooth(object):
                 )
 
                 # Each Neighbors Distance to The Main Agent
-                agents_count = len(observed[0]) #is first always interest ? 
+                agents_count = len(observed[0]) #is first always interest ? YES all calulation are rel. to 1st
                 distances = torch.sqrt(torch.sum((torch.square(outputs_perturbed[-self.pred_length:]
                                     - outputs_perturbed[-self.pred_length:, 0].repeat_interleave(agents_count, 0).reshape(
                                     self.pred_length, agents_count, 2))[:, 1:]), dim=2))
@@ -225,8 +224,8 @@ class Smooth(object):
                 else : #no colision
                     counts[0] += 1
 
-                if (n%print_every) == 0:
-                    print("step : ", n)
+                # if (n%print_every) == 0:
+                #     print("step : ", n)
 
             return counts
 
