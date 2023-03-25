@@ -10,7 +10,7 @@ from trajnetbaselines.lstm.run import Trainer, draw_one_tensor, draw_two_tensor,
 from trajnetbaselines.lstm.utils import center_scene, random_rotation, save_log, calc_fde_ade
 from trajnetbaselines.lstm.non_gridbased_pooling import HiddenStateMLPPooling, NN_LSTM, SAttention
 
-from random_smooth.smooth_model import Smooth
+from random_smooth.smooth_model import Smooth, visualize_scene
 
 def parse_args():
     #<------------- S-ATTack arguments ----------------#
@@ -218,9 +218,12 @@ def main(epochs=10):
 
     sigmas = [0.01, 0.04, 0.07, 0.10]
     for i,sig in enumerate(sigmas):
-        filename = "out/results_certify_all_" + str(sig) + ".txt"
-        smooth_model.certify_all(test_scenes, test_goals, filename, sig, n0, n, alpha, n_predict)
-    
+        filename = "out/temp_cert/results_certify_all_" + str(sig) + ".txt"
+        #smooth_model.certify_all(test_scenes[0:2], test_goals, filename, sig, n0, n, alpha, n_predict)
+        filename_pred = "out/temp_pred/results_predict_all_" + str(sig) + ".txt"
+        all_pred = smooth_model.predict_all(test_scenes[0:2],test_goals, filename_pred, sig, n0, alpha, n_predict)
+        for pred in all_pred:
+            visualize_scene(pred)
     
 
     # trainer

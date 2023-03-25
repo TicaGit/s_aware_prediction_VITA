@@ -1,0 +1,2 @@
+scene_id	sigma	col	noise_norm
+879	0.04	0	0.04038730636239052
