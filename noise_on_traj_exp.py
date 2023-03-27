@@ -293,6 +293,7 @@ class AttackExperiment(Trainer):
                         frame_index = (torch.argmin(distances) // (agents_count - 1)).data - self.pred_length
                         neighbor_index =  (torch.argmin(distances) % (agents_count - 1) + 1).data
                         
+                        #breakpoint()
                         draw_two_tensor(
                             filename, real, perturb, outputs_perturbed[frame_index, 0].tolist()
                                 , outputs_perturbed[frame_index, neighbor_index].tolist()

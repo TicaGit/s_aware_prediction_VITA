@@ -105,6 +105,90 @@ class Smooth(object):
             #breakpoint()
 
 
+    def predict_all(self, scenes: list, goals:list, filename_results:str, 
+                    sigma:int, n0: int, 
+                    alpha: float, n_predict:int =12):
+        """
+        predict for all scenes
+
+        returns
+        -------
+        :all_pred : list of tensors (Tobs+Tpred) x N_agent x 2) : closest noisy prediction
+        :all_real_pred : list of tensors (Tobs+Tpred) x N_agent x 2) : raw input prediction (for comparison)
+        """
+        self.n0 = n0
+        self.alpha = alpha
+        self.n_predict = n_predict
+        self.sigma = sigma 
+
+        #random.shuffle(scenes)
+        check_point_size = 50
+        all_data = []
+
+
+        #first preprocess the scenes
+        for i, (filename, scene_id, paths) in enumerate(scenes):
+
+            scene = trajnetplusplustools.Reader.paths_to_xy(paths) # Now T_obs x N_agent x 2
+            
+            ## get goals
+            if goals is not None:
+                scene_goal = np.array(goals[filename][scene_id])
+            else:
+                scene_goal = np.array([[0, 0] for path in paths])
+
+            ## Drop Distant
+            scene, mask = drop_distant(scene)
+            scene_goal = scene_goal[mask]
+
+            scene = torch.Tensor(scene).to(self.device)
+            scene_goal = torch.Tensor(scene_goal).to(self.device)
+
+            all_data.append((scene_id, scene, scene_goal))
+            #breakpoint()
+
+        all_data = sorted(all_data, key=itemgetter(0))
+
+        with open(filename_results, "w+") as f:
+            f.write("scene_id\tsigma\tcol\tnoise_norm\n")
+
+        start = 0
+        all_pred = []
+        all_real_pred = []
+        for i in tqdm(range(start, min(len(all_data),self.sample_size))):
+            x = all_data[i]
+            scene_id = x[0]
+            scene = x[1]
+            scene_goal = x[2]
+            batch_split = torch.Tensor([0,scene.size(1)]).to(self.device).long()
+
+            # print(scene)
+            # print(i, scene_id)
+            #visualize_scene(scene)
+            #breakpoint()
+
+            #get real 
+            #breakpoint()
+            _, real_pred = self.slstm(scene, scene_goal, batch_split, n_predict=self.n_predict)
+
+            #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
+            real_pred = torch.cat((scene, real_pred[-self.pred_length:]))
+            all_real_pred.append(real_pred)
+
+            # get clossest noisy
+            col, pred, noise_norm  = self.predict_scene(scene, scene_goal, batch_split)
+            #warning, can be None
+            log_pred(filename_results, scene_id, self.sigma, col, noise_norm)
+
+            #IMPORTANT : done inside func
+            
+            all_pred.append(pred) 
+            
+            #breakpoint()
+
+        return all_pred, all_real_pred
+
+
     def certify_scene(self, observed: torch.tensor, goals: torch.tensor, batch_split):
         """ Monte Carlo algorithm for certifying that g's prediction around x is constant within some L2 radius.
         With probability at least 1 - alpha, the class returned by this method will equal g(x), and g's prediction will
@@ -147,6 +231,41 @@ class Smooth(object):
             return dominant_class, radius
         
 
+    def predict_scene(self, observed: torch.tensor, goals: torch.tensor, batch_split):
+        """ Monte Carlo algorithm for evaluating the prediction of g at x.  With probability at least 1 - alpha, the
+        class returned by this method will equal g(x).
+
+        This function uses the hypothesis test described in https://arxiv.org/abs/1610.03944
+        for identifying the top category of a multinomial distribution.
+
+        :param x: the input [channel x height x width]
+        :param n: the number of Monte Carlo samples to use
+        :param alpha: the failure probability
+        :param batch_size: batch size to use when evaluating the base classifier
+        :return: the predicted class, or ABSTAIN
+        """
+        
+        agents_count = len(observed[0])
+        if agents_count <= 1: #solo agent
+            return -2, -2, -2
+        
+        #_sample_noise n0 -> pred
+        # draw sample sof f(x+ epsilon)
+        self.slstm.eval()
+        counts, prediction, noise_norm = self.get_predicted_counts(
+            observed.clone(), goals.clone(), batch_split, self.n0
+        )
+        self.slstm.train()
+
+        top2 = counts.argsort()[::-1] #return index of dominant class, then other, in this order
+        dominant_class = counts[top2[0]]
+        second = counts[top2[1]]
+        if binom_test(dominant_class, self.n0, p=0.5) > self.alpha:
+            return Smooth.ABSTAIN, None, None
+        else:
+            return top2[0], prediction[top2[0]], noise_norm[top2[0]]
+        
+
     def get_certify_counts(self, observed: torch.tensor, goals: torch.tensor, batch_split, num):
         """ Sample the base classifier's prediction under noisy corruptions of the input x.
 
@@ -183,126 +302,7 @@ class Smooth(object):
                     counts[0] += 1
 
             return counts
-
-    def _sample_noise(self, observed: torch.tensor, goals: torch.tensor, batch_split):
-        """
-        produce a output from a noisy version on input
-        """
-        with torch.no_grad():
-            noise = observed.detach().clone().normal_(mean = 0, std = self.sigma)
-            noise[:,1:,:] = 0 #modify only agent 0
-            noise[:-self.time_noise_from_end,:,:] = 0 #add noise only on last timestep
-            # if no_noise_on_last:
-            #     noise[-1,:,:] = 0 
-            noisy_observation = observed + noise
-
-            #run the model
-            _, outputs_perturbed = self.slstm(
-                noisy_observation, goals, batch_split, n_predict=self.n_predict
-            )
-            return outputs_perturbed, noise    
-    
-    
-    def predict_all(self, scenes: list, goals:list, filename_results:str, 
-                    sigma:int, n0: int, 
-                    alpha: float, n_predict:int =12):
-        self.n0 = n0
-        self.alpha = alpha
-        self.n_predict = n_predict
-        self.sigma = sigma 
-
-        #random.shuffle(scenes)
-        check_point_size = 50
-        all_data = []
-
-
-        #first preprocess the scenes
-        for i, (filename, scene_id, paths) in enumerate(scenes):
-
-            scene = trajnetplusplustools.Reader.paths_to_xy(paths) # Now T_obs x N_agent x 2
-            
-            ## get goals
-            if goals is not None:
-                scene_goal = np.array(goals[filename][scene_id])
-            else:
-                scene_goal = np.array([[0, 0] for path in paths])
-
-            ## Drop Distant
-            scene, mask = drop_distant(scene)
-            scene_goal = scene_goal[mask]
-
-            scene = torch.Tensor(scene).to(self.device)
-            scene_goal = torch.Tensor(scene_goal).to(self.device)
-
-            all_data.append((scene_id, scene, scene_goal))
-            #breakpoint()
-
-        all_data = sorted(all_data, key=itemgetter(0))
-
-        with open(filename_results, "w+") as f:
-            f.write("scene_id\tsigma\tcol\tnoise_norm\n")
-
-        start = 0
-        all_pred = []
-        for i in tqdm(range(start, min(len(all_data),self.sample_size))):
-            x = all_data[i]
-            scene_id = x[0]
-            scene = x[1]
-            scene_goal = x[2]
-            batch_split = torch.Tensor([0,scene.size(1)]).to(self.device).long()
-
-            # print(scene)
-            # print(i, scene_id)
-            #visualize_scene(scene)
-            #breakpoint()
-
-            col, pred, noise_norm  = self.predict_scene(scene, scene_goal, batch_split)
-            log_pred(filename_results, scene_id, self.sigma, col, noise_norm)
-
-            #do smth with the prediction
-            if pred == None:
-                all_pred.append(None)
-                continue
-                #classifier did astrain
-            else :
-                all_pred.append(pred)
-            
-            #breakpoint()
-        return all_pred
         
-    def predict_scene(self, observed: torch.tensor, goals: torch.tensor, batch_split):
-        """ Monte Carlo algorithm for evaluating the prediction of g at x.  With probability at least 1 - alpha, the
-        class returned by this method will equal g(x).
-
-        This function uses the hypothesis test described in https://arxiv.org/abs/1610.03944
-        for identifying the top category of a multinomial distribution.
-
-        :param x: the input [channel x height x width]
-        :param n: the number of Monte Carlo samples to use
-        :param alpha: the failure probability
-        :param batch_size: batch size to use when evaluating the base classifier
-        :return: the predicted class, or ABSTAIN
-        """
-        
-    
-        #_sample_noise n0 -> pred
-        # draw sample sof f(x+ epsilon)
-        self.slstm.eval()
-        counts, prediction, noise_norm = self.get_predicted_counts(
-            observed.clone(), goals.clone(), batch_split, self.n0
-        )
-        self.slstm.train()
-
-        top2 = counts.argsort()[::-1] #return index of dominant class, then other, in this order
-        dominant_class = counts[top2[0]]
-        second = counts[top2[1]]
-        if binom_test(dominant_class, self.n0, p=0.5) > self.alpha:
-            return Smooth.ABSTAIN, None
-        else:
-            return top2[0], prediction[top2[0]], noise_norm[top2[0]]
-        
-
-
 
     def get_predicted_counts(self, observed: torch.tensor, goals: torch.tensor, batch_split, num):
         """ Sample the base classifier's prediction under noisy corruptions of the input x.
@@ -334,6 +334,9 @@ class Smooth(object):
 
                 # Score
                 score = torch.min(distances).data
+
+                #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
+                outputs_perturbed = torch.cat((observed + noise, outputs_perturbed[-self.pred_length:]))
                 
                 #check if collision
                 is_col = (score < self.collision_treshold)
@@ -353,6 +356,25 @@ class Smooth(object):
 
             return counts, smallest_pred, smallest_l2_norm
 
+    def _sample_noise(self, observed: torch.tensor, goals: torch.tensor, batch_split):
+        """
+        produce a output from a noisy version on input
+        """
+        with torch.no_grad():
+            noise = observed.detach().clone().normal_(mean = 0, std = self.sigma)
+            noise[:,1:,:] = 0 #modify only agent 0
+            noise[:-self.time_noise_from_end,:,:] = 0 #add noise only on last timestep
+            # if no_noise_on_last:
+            #     noise[-1,:,:] = 0 
+            noisy_observation = observed + noise
+
+            #run the model
+            _, outputs_perturbed = self.slstm(
+                noisy_observation, goals, batch_split, n_predict=self.n_predict
+            )
+            return outputs_perturbed, noise    
+    
+    
 
     def _lower_confidence_bound(self, NA: int, N: int, alpha: float) -> float:
         """ Returns a (1 - alpha) lower confidence bound on a bernoulli proportion.

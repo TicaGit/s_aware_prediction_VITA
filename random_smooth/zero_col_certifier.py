@@ -216,14 +216,31 @@ def main(epochs=10):
     alpha = 0.01
     n_predict = 12
 
+    num_draw = 2
+
+    #vary noise level
     sigmas = [0.01, 0.04, 0.07, 0.10]
     for i,sig in enumerate(sigmas):
+        #CERTIFY SCENES
         filename = "out/temp_cert/results_certify_all_" + str(sig) + ".txt"
         #smooth_model.certify_all(test_scenes[0:2], test_goals, filename, sig, n0, n, alpha, n_predict)
+
+        #PREDICT SCENE
         filename_pred = "out/temp_pred/results_predict_all_" + str(sig) + ".txt"
-        all_pred = smooth_model.predict_all(test_scenes[0:2],test_goals, filename_pred, sig, n0, alpha, n_predict)
-        for pred in all_pred:
-            visualize_scene(pred)
+        all_pred, all_real_pred = smooth_model.predict_all(
+            test_scenes[0:2],test_goals, filename_pred, sig, n0, alpha, n_predict
+        )
+        
+        #DRAW SOME OF THE PREDICTED SCENES
+        for j, (pred, real_pred) in enumerate(zip(all_pred, all_real_pred)):
+            if pred is None: #return type for solo agent
+                continue
+            if j >= num_draw:
+                break
+            filedraw = "out/temp_pred/drawing_" + str(sig) + "_" + str(j) + '.png'
+            #breakpoint()           
+            draw_two_tensor(filedraw, real_pred, pred)
+            
     
 
     # trainer
