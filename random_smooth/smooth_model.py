@@ -99,7 +99,7 @@ class Smooth(object):
             # print(i, scene_id)
             #visualize_scene(scene)
             #breakpoint()
-
+            
             col, r = self.certify_scene(scene, scene_goal, batch_split)
             log(filename_results, scene_id, self.sigma, col, r)
             #breakpoint()
@@ -175,6 +175,7 @@ class Smooth(object):
             real_pred = torch.cat((scene, real_pred[-self.pred_length:]))
             all_real_pred.append(real_pred)
 
+            #breakpoint()
             # get clossest noisy
             col, pred, noise_norm  = self.predict_scene(scene, scene_goal, batch_split)
             #warning, can be None
@@ -206,6 +207,7 @@ class Smooth(object):
         #_, outputs = self.slstm(observed.clone(), goals.clone(), batch_split, n_predict=self.n_predict)
         #breakpoint()
         agents_count = len(observed[0])
+        #breakpoint()
         if agents_count <= 1: #solo agent
             return -2, -2
 
@@ -246,8 +248,9 @@ class Smooth(object):
         """
         
         agents_count = len(observed[0])
+        #breakpoint()
         if agents_count <= 1: #solo agent
-            return -2, -2, -2
+            return -2, None, -2
         
         #_sample_noise n0 -> pred
         # draw sample sof f(x+ epsilon)

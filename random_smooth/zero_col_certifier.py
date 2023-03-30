@@ -143,9 +143,12 @@ def main(epochs=10):
 
     args = parse_args()
 
-    if args.sample < 1.0:
+    if args.sample < 1.0 or True: #FORCE RANDOM HERE
         torch.manual_seed("080819")
         random.seed(1)
+        np.random.seed(1)
+
+    args.sample = None #TEST THAT TO DEACTIVATE RANDOM
 
     # refactor args for --load-state
     args.load_state_strict = True
@@ -233,7 +236,7 @@ def main(epochs=10):
         
         #DRAW SOME OF THE PREDICTED SCENES
         for j, (pred, real_pred) in enumerate(zip(all_pred, all_real_pred)):
-            if pred is None: #return type for solo agent
+            if pred is None: #return type for solo
                 continue
             if j >= num_draw:
                 break
