@@ -8,7 +8,7 @@ py -m random_smooth.zero_col_certifier ^
 --reg_w 0.7 ^
 --perturb_all true ^
 --threads_limit 1 ^
---data_part test ^
+--data_part secret ^
 --collision_type hard ^
 --speed_up true ^
 --sample_size 100 ^

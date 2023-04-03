@@ -29,6 +29,7 @@ class Smooth(object):
                  time_noise_from_end=0,
                  pred_length = 12,
                  collision_treshold = 0.2,
+                 obs_length = 9,
                  ):
         """
         :param base_classifier: maps from [batch x channel x height x width] to [batch x num_classes]
@@ -43,6 +44,7 @@ class Smooth(object):
         self.collision_treshold = collision_treshold
 
         self.num_classes = 2 #binary, col or no_col
+        self._obs_length = obs_length
 
     def preprocess_scenes(self, scenes: list, goals:list):
         #first preprocess the scenes
@@ -152,10 +154,13 @@ class Smooth(object):
 
             #get real 
             #breakpoint()
-            _, real_pred = self.slstm(scene, scene_goal, batch_split, n_predict=self.n_predict)
+            _, real_pred = self.slstm(scene[:self._obs_length], 
+                                      scene_goal, 
+                                      batch_split, 
+                                      n_predict=self.n_predict)
 
             #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
-            real_pred = torch.cat((scene, real_pred[-self.pred_length:]))
+            real_pred = torch.cat((scene[:self._obs_length], real_pred[-self.pred_length:]))
             all_real_pred.append(real_pred)
 
             #breakpoint()
@@ -173,7 +178,7 @@ class Smooth(object):
         return all_pred, all_real_pred
 
 
-    def certify_scene(self, observed: torch.tensor, goals: torch.tensor, batch_split):
+    def certify_scene(self, xy: torch.tensor, goals: torch.tensor, batch_split):
         """ Monte Carlo algorithm for certifying that g's prediction around x is constant within some L2 radius.
         With probability at least 1 - alpha, the class returned by this method will equal g(x), and g's prediction will
         robust within a L2 ball of radius R around x.
@@ -188,6 +193,8 @@ class Smooth(object):
         """
 
         #_, outputs = self.slstm(observed.clone(), goals.clone(), batch_split, n_predict=self.n_predict)
+
+        observed = xy[:self._obs_length].clone()
         #breakpoint()
         agents_count = len(observed[0])
         #breakpoint()
@@ -195,7 +202,7 @@ class Smooth(object):
             return -2, -2
 
         #_sample_noise n0 -> pred
-        # draw sample sof f(x+ epsilon)
+        # draw samples of f(x+ epsilon) #only give obs_lenght
         counts_selection = self.get_certify_counts(observed.clone(), goals.clone(), batch_split, self.n0)
 
         # use these samples to take a guess at the top class
@@ -216,7 +223,7 @@ class Smooth(object):
             return dominant_class, radius
         
 
-    def predict_scene(self, observed: torch.tensor, goals: torch.tensor, batch_split):
+    def predict_scene(self, xy: torch.tensor, goals: torch.tensor, batch_split):
         """ Monte Carlo algorithm for evaluating the prediction of g at x.  With probability at least 1 - alpha, the
         class returned by this method will equal g(x).
 
@@ -229,6 +236,9 @@ class Smooth(object):
         :param batch_size: batch size to use when evaluating the base classifier
         :return: the predicted class, or ABSTAIN
         """
+
+        #reduce to Tobs
+        observed = xy[:self._obs_length].clone()
         
         agents_count = len(observed[0])
         #breakpoint()

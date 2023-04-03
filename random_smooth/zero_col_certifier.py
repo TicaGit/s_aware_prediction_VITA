@@ -33,7 +33,7 @@ def parse_args():
                         choices=('hard', 'soft'),
                         help='method used for attack')
     parser.add_argument('--data_part', default='test',
-                        choices=('test', 'train', 'val'),
+                        choices=('test', 'train', 'val', 'secret'),
                         help='data part to perform attack on')
     parser.add_argument('--models_path', default='trajnetbaselines/lstm/Target-Model/d_pool.state',
                         help='the directory of the model')
@@ -166,9 +166,11 @@ def main(epochs=10):
     test_path = 'DATA_BLOCK/trajdata'
     args.path = 'DATA_BLOCK/' + args.path
     if args.data_part == 'test':
-      test_scenes, test_goals = prepare_data(test_path, subset='/test/', sample=args.sample, goals=args.goals)
-    else:
-      test_scenes, test_goals = prepare_data(args.path, subset='/train/', sample=args.sample, goals=args.goals)
+        test_scenes, test_goals = prepare_data(test_path, subset='/test/', sample=args.sample, goals=args.goals)
+    elif args.data_part == 'train':
+        test_scenes, test_goals = prepare_data(args.path, subset='/train/', sample=args.sample, goals=args.goals)
+    elif args.data_part == 'secret': #NEW
+        test_scenes, test_goals = prepare_data(args.path, subset='/test_private/', sample=args.sample, goals=args.goals)
 
     # create model (Various interaction/pooling modules)
     pool = None
@@ -211,15 +213,16 @@ def main(epochs=10):
     pred_length=args.pred_length
     collision_treshold = 0.2 #20cm
     smooth_model = Smooth(model, device=args.device, 
-                          sample_size = sample_size,time_noise_from_end = time_noise_from_end,
-                          pred_length = pred_length, collision_treshold = collision_treshold)
+                          sample_size = sample_size, time_noise_from_end = time_noise_from_end,
+                          pred_length = pred_length, collision_treshold = collision_treshold,
+                          obs_length = args.obs_length)
 
     n0 = 100
     n = 5000
     alpha = 0.01
     n_predict = 12
 
-    num_draw = 2
+    num_draw = 0
 
     #vary noise level
     sigmas = [0.01, 0.04, 0.07, 0.10]
@@ -227,26 +230,42 @@ def main(epochs=10):
 
         #PREPROCESS SCENES
         all_data = smooth_model.preprocess_scenes(test_scenes, test_goals)
+        
+        #get the ground truth : correct ??
+        ground_truth = [ (scene[1], scene[1][args.obs_length:,:,:],scene[2]) for scene in all_data]
+        #breakpoint()
+
+        #take a slice for test
+        #ground_truth = ground_truth[0:2]
+        #all_data = all_data[0:2]
 
         #CERTIFY SCENES
         filename = "out/temp_cert/results_certify_all_" + str(sig) + ".txt"
-        #smooth_model.certify_all(all_data[0:2], filename, sig, n0, n, alpha, n_predict)
+        #smooth_model.certify_all(all_data, filename, sig, n0, n, alpha, n_predict)
 
         #PREDICT SCENE
         filename_pred = "out/temp_pred/results_predict_all_" + str(sig) + ".txt"
         all_pred, all_real_pred = smooth_model.predict_all(
-            all_data[0:2], filename_pred, sig, n0, alpha, n_predict
+            all_data, filename_pred, sig, n0, alpha, n_predict
         )
-        
-        #DRAW SOME OF THE PREDICTED SCENES
-        for j, (pred, real_pred) in enumerate(zip(all_pred, all_real_pred)):
+
+        filename_fade = "out/temp_fade/results_ade_fde_" + str(sig) + ".txt"
+        with open(filename_fade, "w+") as f:
+                f.write("idx\tfde\tade\n")
+
+        for j, (pred, real_pred, ground_t) in enumerate(zip(all_pred, all_real_pred, ground_truth)):
+            #DRAW SOME OF THE PREDICTED SCENES
             if pred is None: #return type for solo
                 continue
-            if j >= num_draw:
-                break
-            filedraw = "out/temp_pred/drawing_" + str(sig) + "_" + str(j) + '.png'
-            #breakpoint()           
-            draw_two_tensor(filedraw, real_pred, pred)
+            if j < num_draw:    
+                filedraw = "out/temp_pred/drawing_" + str(sig) + "_" + str(j) + '.png'        
+                draw_two_tensor(filedraw, real_pred, pred)
+
+            #COMPUTE METRIC
+            fde, ade = calc_fde_ade(pred, ground_t[0])
+            with open(filename_fade,"a") as f:
+                f.write(str(j)+ "\t" + str(fde) + "\t" + str(ade) +"\n")
+
             
     
 
