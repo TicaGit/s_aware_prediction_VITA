@@ -127,3 +127,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+#specific file
+DATA_BLOCK/trajdata/test_private/
