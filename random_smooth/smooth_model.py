@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import trajnetplusplustools
 from trajnetbaselines.lstm.lstm import drop_distant
 from trajnetbaselines.lstm.run import draw_one_tensor
+from trajnetbaselines.lstm.utils import seperate_xy, is_stationary
 
 
 
@@ -43,25 +44,9 @@ class Smooth(object):
 
         self.num_classes = 2 #binary, col or no_col
 
-
-    def certify_all(self, scenes: list, goals:list, filename_results:str, 
-                    sigma:int, n0: int, n: int, 
-                    alpha: float, n_predict:int =12):
-        """
-        cerfify all scenes
-        """
-        self.n0 = n0
-        self.n = n
-        self.alpha = alpha
-        self.n_predict = n_predict
-        self.sigma = sigma 
-
-        #random.shuffle(scenes)
-        check_point_size = 50
-        all_data = []
-
-
+    def preprocess_scenes(self, scenes: list, goals:list):
         #first preprocess the scenes
+        all_data = []
         for i, (filename, scene_id, paths) in enumerate(scenes):
 
             scene = trajnetplusplustools.Reader.paths_to_xy(paths) # Now T_obs x N_agent x 2
@@ -79,10 +64,36 @@ class Smooth(object):
             scene = torch.Tensor(scene).to(self.device)
             scene_goal = torch.Tensor(scene_goal).to(self.device)
 
+            ## remove stationnary
+            valid_scene = True
+            for agent_path in paths:
+                xs, ys = seperate_xy(agent_path)
+                if is_stationary(xs, ys): #one or more is stationary
+                    valid_scene = False #we skip this scnene
+            #print(valid_scene)
+            if not valid_scene:
+                continue
+
             all_data.append((scene_id, scene, scene_goal))
             #breakpoint()
             
         all_data = sorted(all_data, key=itemgetter(0))
+        return all_data
+
+
+
+    def certify_all(self, all_data:list , filename_results:str, 
+                    sigma:int, n0: int, n: int, 
+                    alpha: float, n_predict:int =12):
+        """
+        cerfify all scenes
+        """
+        self.n0 = n0
+        self.n = n
+        self.alpha = alpha
+        self.n_predict = n_predict
+        self.sigma = sigma 
+
 
         with open(filename_results, "w+") as f:
             f.write("scene_id\tsigma\tcol\tr\n")
@@ -105,7 +116,7 @@ class Smooth(object):
             #breakpoint()
 
 
-    def predict_all(self, scenes: list, goals:list, filename_results:str, 
+    def predict_all(self, all_data:list, filename_results:str, 
                     sigma:int, n0: int, 
                     alpha: float, n_predict:int =12):
         """
@@ -120,34 +131,6 @@ class Smooth(object):
         self.alpha = alpha
         self.n_predict = n_predict
         self.sigma = sigma 
-
-        #random.shuffle(scenes)
-        check_point_size = 50
-        all_data = []
-
-
-        #first preprocess the scenes
-        for i, (filename, scene_id, paths) in enumerate(scenes):
-
-            scene = trajnetplusplustools.Reader.paths_to_xy(paths) # Now T_obs x N_agent x 2
-            
-            ## get goals
-            if goals is not None:
-                scene_goal = np.array(goals[filename][scene_id])
-            else:
-                scene_goal = np.array([[0, 0] for path in paths])
-
-            ## Drop Distant
-            scene, mask = drop_distant(scene)
-            scene_goal = scene_goal[mask]
-
-            scene = torch.Tensor(scene).to(self.device)
-            scene_goal = torch.Tensor(scene_goal).to(self.device)
-
-            all_data.append((scene_id, scene, scene_goal))
-            #breakpoint()
-
-        all_data = sorted(all_data, key=itemgetter(0))
 
         with open(filename_results, "w+") as f:
             f.write("scene_id\tsigma\tcol\tnoise_norm\n")

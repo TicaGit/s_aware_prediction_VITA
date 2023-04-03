@@ -224,14 +224,18 @@ def main(epochs=10):
     #vary noise level
     sigmas = [0.01, 0.04, 0.07, 0.10]
     for i,sig in enumerate(sigmas):
+
+        #PREPROCESS SCENES
+        all_data = smooth_model.preprocess_scenes(test_scenes, test_goals)
+
         #CERTIFY SCENES
         filename = "out/temp_cert/results_certify_all_" + str(sig) + ".txt"
-        #smooth_model.certify_all(test_scenes[0:2], test_goals, filename, sig, n0, n, alpha, n_predict)
+        #smooth_model.certify_all(all_data[0:2], filename, sig, n0, n, alpha, n_predict)
 
         #PREDICT SCENE
         filename_pred = "out/temp_pred/results_predict_all_" + str(sig) + ".txt"
         all_pred, all_real_pred = smooth_model.predict_all(
-            test_scenes[0:2],test_goals, filename_pred, sig, n0, alpha, n_predict
+            all_data[0:2], filename_pred, sig, n0, alpha, n_predict
         )
         
         #DRAW SOME OF THE PREDICTED SCENES
