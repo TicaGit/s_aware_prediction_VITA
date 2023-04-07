@@ -406,7 +406,10 @@ class Smooth(object):
         produce a output from a noisy version on input
         """
         with torch.no_grad():
-            noise = observed.detach().clone().normal_(mean = 0, std = self.sigma)
+            if self.sigma != 0.0:
+                noise = observed.detach().clone().normal_(mean = 0, std = self.sigma)
+            else:
+                noise = torch.zeros_like(observed)
             noise[:,1:,:] = 0 #modify only agent 0
             noise[:-self.time_noise_from_end,:,:] = 0 #add noise only on last timestep
             # if no_noise_on_last:
