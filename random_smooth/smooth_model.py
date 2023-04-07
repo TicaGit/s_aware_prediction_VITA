@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import trajnetplusplustools
 from trajnetbaselines.lstm.lstm import drop_distant
 from trajnetbaselines.lstm.run import draw_one_tensor
-from trajnetbaselines.lstm.utils import seperate_xy, is_stationary
+from trajnetbaselines.lstm.utils import seperate_xy, is_stationary, calc_fde_ade
 
 
 
@@ -37,6 +37,7 @@ class Smooth(object):
         :param sigma: the noise level hyperparameter
         """
         self.slstm = slstm
+        self.slstm.eval()
         self.device = device
         self.sample_size = sample_size
         self.time_noise_from_end = time_noise_from_end
@@ -47,6 +48,12 @@ class Smooth(object):
         self._obs_length = obs_length
 
     def preprocess_scenes(self, scenes: list, goals:list):
+        """
+        
+        return
+        ------
+        :all_data: a list of tuple containing each scenes infos
+        """
         #first preprocess the scenes
         all_data = []
         for i, (filename, scene_id, paths) in enumerate(scenes):
@@ -114,13 +121,14 @@ class Smooth(object):
             #breakpoint()
             
             col, r = self.certify_scene(scene, scene_goal, batch_split)
-            log(filename_results, scene_id, self.sigma, col, r)
+            log_cert(filename_results, scene_id, self.sigma, col, r)
             #breakpoint()
 
 
     def predict_all(self, all_data:list, filename_results:str, 
                     sigma:int, n0: int, 
-                    alpha: float, n_predict:int =12):
+                    alpha: float, n_predict:int =12,
+                    PREDICTION_MODE = "just_one"):
         """
         predict for all scenes
 
@@ -135,7 +143,7 @@ class Smooth(object):
         self.sigma = sigma 
 
         with open(filename_results, "w+") as f:
-            f.write("scene_id\tsigma\tcol\tnoise_norm\n")
+            f.write("scene_id\t" + "sigma\t" + "col\t" + "noise_norm\t" + "ade\t" + "fde\n")
 
         start = 0
         all_pred = []
@@ -152,9 +160,8 @@ class Smooth(object):
             #visualize_scene(scene)
             #breakpoint()
 
-            #get real 
-            #breakpoint()
-            _, real_pred = self.slstm(scene[:self._obs_length], 
+            #get real only with Tobs timesteps
+            _, real_pred = self.slstm(scene[:self._obs_length],  
                                       scene_goal, 
                                       batch_split, 
                                       n_predict=self.n_predict)
@@ -163,13 +170,30 @@ class Smooth(object):
             real_pred = torch.cat((scene[:self._obs_length], real_pred[-self.pred_length:]))
             all_real_pred.append(real_pred)
 
-            #breakpoint()
-            # get clossest noisy
-            col, pred, noise_norm  = self.predict_scene(scene, scene_goal, batch_split)
-            #warning, can be None
-            log_pred(filename_results, scene_id, self.sigma, col, noise_norm)
+            
+            if PREDICTION_MODE == "just_one":
+                if self.sigma == 0.0:
+                    self.n0 = 1 #since no noise, only 1 pass to predict
+                col, pred, noise_norm  = self.predict_scene_no_col(
+                    scene[:self._obs_length], scene_goal, batch_split
+                )
+            elif PREDICTION_MODE == "majority":
+                # get clossest noisy #only give Tobs
+                col, pred, noise_norm  = self.predict_scene(
+                    scene[:self._obs_length], scene_goal, batch_split
+                )
+            else:
+                print("wrong PREDICTION_MODE")
 
-            #IMPORTANT : done inside func
+            #compute ade/fde with ground truth
+            if pred is not None:
+                fde, ade = calc_fde_ade(pred, scene) #scene IS ground truth
+            else : #handle solo agent
+                fde,ade = -2, -2
+            #warning, can be None
+            log_pred(filename_results, scene_id, self.sigma, col, noise_norm, ade, fde)
+
+            #IMPORTANT : replacing Tobs with real obs is done inside func
             
             all_pred.append(pred) 
             
@@ -238,7 +262,7 @@ class Smooth(object):
         """
 
         #reduce to Tobs
-        observed = xy[:self._obs_length].clone()
+        observed = xy[:self._obs_length].clone() #done before, can remove
         
         agents_count = len(observed[0])
         #breakpoint()
@@ -247,11 +271,10 @@ class Smooth(object):
         
         #_sample_noise n0 -> pred
         # draw sample sof f(x+ epsilon)
-        self.slstm.eval()
-        counts, prediction, noise_norm = self.get_predicted_counts(
+        
+        counts, prediction, noise_norm = self.get_predicted_counts( #prediction is Tobs+Tpred
             observed.clone(), goals.clone(), batch_split, self.n0
         )
-        self.slstm.train()
 
         top2 = counts.argsort()[::-1] #return index of dominant class, then other, in this order
         dominant_class = counts[top2[0]]
@@ -260,6 +283,32 @@ class Smooth(object):
             return Smooth.ABSTAIN, None, None
         else:
             return top2[0], prediction[top2[0]], noise_norm[top2[0]]
+        
+
+    def predict_scene_no_col(self, xy: torch.tensor, goals: torch.tensor, batch_split):
+        """
+        just return a traf without colisions
+        """
+        observed = xy[:self._obs_length].clone()
+
+        agents_count = len(observed[0])
+        #breakpoint()
+        if agents_count <= 1: #solo agent
+            return -2, None, -2
+        
+        #_sample_noise n0 -> pred
+        # draw sample sof f(x+ epsilon)
+        
+        counts, prediction, noise_norm = self.get_predicted_counts( #prediction is Tobs+Tpred
+            observed.clone(), goals.clone(), batch_split, self.n0
+        )
+
+        # counts [num_no_col, num_col]
+        if counts[0] != 0: #one realisation have no col
+            return 0, prediction[0], noise_norm[0]
+        else: # all real have a col
+            return 1, prediction[1], noise_norm[1]
+
         
 
     def get_certify_counts(self, observed: torch.tensor, goals: torch.tensor, batch_split, num):
@@ -323,7 +372,7 @@ class Smooth(object):
                 outputs_perturbed, noise = self._sample_noise(observed, goals, batch_split)
 
                 # Each Neighbors Distance to The Main Agent
-                agents_count = len(observed[0]) #is first always interest ? YES all calulation are rel. to 1st
+                agents_count = len(observed[0]) #all calulation are rel. to 1st
                 distances = torch.sqrt(torch.sum((torch.square(outputs_perturbed[-self.pred_length:]
                                     - outputs_perturbed[-self.pred_length:, 0].repeat_interleave(agents_count, 0).reshape(
                                     self.pred_length, agents_count, 2))[:, 1:]), dim=2))
@@ -386,13 +435,14 @@ class Smooth(object):
 
 ## UTILS##
 
-def log(filename, scene_id, sigma, col, r):
+def log_cert(filename, scene_id, sigma, col, r):
     with open(filename,"a+") as f:
         f.write(str(scene_id) + "\t" + str(sigma) + "\t" + str(col) + "\t" + str(r) + "\n")
 
-def log_pred(filename, scene_id, sigma, col, noise_norm):
+def log_pred(filename, scene_id, sigma, col, noise_norm, ade, fde):
     with open(filename,"a+") as f: 
-        f.write(str(scene_id) + "\t" + str(sigma) + "\t" + str(col) + "\t" + str(noise_norm) + "\n")
+        f.write(str(scene_id) + "\t" + str(sigma) + "\t" + str(col) + "\t" + str(noise_norm) + 
+                "\t" + str(ade) + "\t" + str(fde) + "\n")
 
 def visualize_scene(scene, goal=None):
     for t in range(scene.shape[1]):

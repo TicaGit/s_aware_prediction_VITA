@@ -12,6 +12,8 @@ from trajnetbaselines.lstm.non_gridbased_pooling import HiddenStateMLPPooling, N
 
 from random_smooth.smooth_model import Smooth, visualize_scene
 
+from random_smooth.utils_me import draw_three_tensor
+
 def parse_args():
     #<------------- S-ATTack arguments ----------------#
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
@@ -148,7 +150,7 @@ def main(epochs=10):
         random.seed(1)
         np.random.seed(1)
 
-    args.sample = None #TEST THAT TO DEACTIVATE RANDOM
+    #args.sample = None #TEST THAT TO DEACTIVATE RANDOM
 
     # refactor args for --load-state
     args.load_state_strict = True
@@ -169,7 +171,7 @@ def main(epochs=10):
         test_scenes, test_goals = prepare_data(test_path, subset='/test/', sample=args.sample, goals=args.goals)
     elif args.data_part == 'train':
         test_scenes, test_goals = prepare_data(args.path, subset='/train/', sample=args.sample, goals=args.goals)
-    elif args.data_part == 'secret': #NEW
+    elif args.data_part == 'secret': #NEW - UNTRACKED - ONLY HERE LOCALLY
         test_scenes, test_goals = prepare_data(args.path, subset='/test_private/', sample=args.sample, goals=args.goals)
 
     # create model (Various interaction/pooling modules)
@@ -206,11 +208,13 @@ def main(epochs=10):
 
     ### NEW ###
 
+     #RANDOM IS FORCESD l.146 + l.153
+
     
     sample_size = args.sample_size 
     #sample_size = 2
     time_noise_from_end = 3
-    pred_length=args.pred_length
+    pred_length=args.pred_length #12
     collision_treshold = 0.2 #20cm
     smooth_model = Smooth(model, device=args.device, 
                           sample_size = sample_size, time_noise_from_end = time_noise_from_end,
@@ -222,21 +226,21 @@ def main(epochs=10):
     alpha = 0.01
     n_predict = 12
 
+    PREDICTION_MODE = "just_one" # "majority"
+
     num_draw = 0
 
     #vary noise level
-    sigmas = [0.01, 0.04, 0.07, 0.10]
+    #sigmas = [0.01, 0.04, 0.07, 0.10]
+    sigmas = [0.0, 0.003, 0.006, 0.009, 0.012] #test with no noise
     for i,sig in enumerate(sigmas):
 
         #PREPROCESS SCENES
         all_data = smooth_model.preprocess_scenes(test_scenes, test_goals)
-        
-        #get the ground truth : correct ??
-        ground_truth = [ (scene[1], scene[1][args.obs_length:,:,:],scene[2]) for scene in all_data]
-        #breakpoint()
+
+        #print(len(all_data)) #1232 scenes !
 
         #take a slice for test
-        #ground_truth = ground_truth[0:2]
         #all_data = all_data[0:2]
 
         #CERTIFY SCENES
@@ -244,27 +248,36 @@ def main(epochs=10):
         #smooth_model.certify_all(all_data, filename, sig, n0, n, alpha, n_predict)
 
         #PREDICT SCENE
-        filename_pred = "out/temp_pred/results_predict_all_" + str(sig) + ".txt"
+        file = "out/temp_pred/"
+        filename_pred = file + "results_predict_all_" + str(sig) + ".txt"
         all_pred, all_real_pred = smooth_model.predict_all(
-            all_data, filename_pred, sig, n0, alpha, n_predict
+            all_data, filename_pred, sig, n0, alpha, n_predict, PREDICTION_MODE
         )
 
-        filename_fade = "out/temp_fade/results_ade_fde_" + str(sig) + ".txt"
-        with open(filename_fade, "w+") as f:
-                f.write("idx\tfde\tade\n")
+        # filename_fade = "out/temp_fade/results_ade_fde_" + str(sig) + ".txt"
+        # with open(filename_fade, "w+") as f:
+        #         f.write("idx\tfde\tade\n")
 
-        for j, (pred, real_pred, ground_t) in enumerate(zip(all_pred, all_real_pred, ground_truth)):
+        # all_data IS ground truth (if datapart == secret)
+
+        for j, (pred, real_pred, ground_t) in enumerate(zip(all_pred, all_real_pred, all_data)):
             #DRAW SOME OF THE PREDICTED SCENES
             if pred is None: #return type for solo
                 continue
             if j < num_draw:    
-                filedraw = "out/temp_pred/drawing_" + str(sig) + "_" + str(j) + '.png'        
-                draw_two_tensor(filedraw, real_pred, pred)
+                filedraw = file + "drawing_all_three" + str(sig) + "_" + str(j) + '.png'        
+                draw_three_tensor(filedraw, pred, real_pred, ground_t[1])
+
+                # filedraw = file + "drawing_real_vs_noisy" + str(sig) + "_" + str(j) + '.png'        
+                # draw_two_tensor(filedraw, real_pred, pred)
+
+                # filedraw = file + "drawing_ground_t_vs_noisy" + str(sig) + "_" + str(j) + '.png'        
+                # draw_two_tensor(filedraw, ground_t[1], pred)
 
             #COMPUTE METRIC
-            fde, ade = calc_fde_ade(pred, ground_t[0])
-            with open(filename_fade,"a") as f:
-                f.write(str(j)+ "\t" + str(fde) + "\t" + str(ade) +"\n")
+            # fde, ade = calc_fde_ade(pred, ground_t[0])
+            # with open(filename_fade,"a") as f:
+            #     f.write(str(j)+ "\t" + str(fde) + "\t" + str(ade) +"\n")
 
             
     

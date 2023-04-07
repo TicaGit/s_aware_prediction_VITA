@@ -11,7 +11,7 @@ py -m random_smooth.zero_col_certifier ^
 --data_part secret ^
 --collision_type hard ^
 --speed_up true ^
---sample_size 100 ^
+--sample_size 1232 ^
 --enable_thread false ^
 --output out/tmp/ ^
 --models_path trajnetbaselines/lstm/Target-Model/d_pool.state
