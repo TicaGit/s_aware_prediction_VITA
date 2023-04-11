@@ -93,14 +93,13 @@ class Smooth(object):
 
     def certify_all(self, all_data:list , filename_results:str, 
                     sigma:int, n0: int, n: int, 
-                    alpha: float, n_predict:int =12):
+                    alpha: float):
         """
         cerfify all scenes
         """
         self.n0 = n0
         self.n = n
         self.alpha = alpha
-        self.n_predict = n_predict
         self.sigma = sigma 
 
 
@@ -127,8 +126,7 @@ class Smooth(object):
 
     def predict_all(self, all_data:list, filename_results:str, 
                     sigma:int, n0: int, 
-                    alpha: float, n_predict:int =12,
-                    PREDICTION_MODE = "just_one"):
+                    alpha: float, PREDICTION_MODE = "just_one"):
         """
         predict for all scenes
 
@@ -139,7 +137,6 @@ class Smooth(object):
         """
         self.n0 = n0
         self.alpha = alpha
-        self.n_predict = n_predict
         self.sigma = sigma 
 
         with open(filename_results, "w+") as f:
@@ -164,7 +161,7 @@ class Smooth(object):
             _, real_pred = self.slstm(scene[:self._obs_length],  
                                       scene_goal, 
                                       batch_split, 
-                                      n_predict=self.n_predict)
+                                      n_predict=self.pred_length)
 
             #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
             real_pred = torch.cat((scene[:self._obs_length], real_pred[-self.pred_length:]))
@@ -216,7 +213,7 @@ class Smooth(object):
                  in the case of abstention, the class will be ABSTAIN and the radius 0.
         """
 
-        #_, outputs = self.slstm(observed.clone(), goals.clone(), batch_split, n_predict=self.n_predict)
+        #_, outputs = self.slstm(observed.clone(), goals.clone(), batch_split, n_predict=self.pred_length)
 
         observed = xy[:self._obs_length].clone()
         #breakpoint()
@@ -411,14 +408,14 @@ class Smooth(object):
             else:
                 noise = torch.zeros_like(observed)
             noise[:,1:,:] = 0 #modify only agent 0
-            noise[:-self.time_noise_from_end,:,:] = 0 #add noise only on last timestep
+            noise[:-self.time_noise_from_end,:,:] = 0 #add noise only on last timesteps
             # if no_noise_on_last:
             #     noise[-1,:,:] = 0 
             noisy_observation = observed + noise
 
             #run the model
             _, outputs_perturbed = self.slstm(
-                noisy_observation, goals, batch_split, n_predict=self.n_predict
+                noisy_observation, goals, batch_split, n_predict=self.pred_length
             )
             return outputs_perturbed, noise    
     

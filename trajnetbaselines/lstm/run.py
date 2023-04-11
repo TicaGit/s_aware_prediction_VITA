@@ -448,8 +448,8 @@ class Trainer(object):
             perturb = torch.cat((perturbed_observation[: self.obs_length], best_outputs_perturbed[-self.pred_length:]))
 
             if did_collide:
-                filename = self.output_dir + str(scene_id) + '_altered_scene_ade: ' + str(
-                    round(self.all_ade['observed'][-1], 3)) + '.png'
+                filename = self.output_dir + str(scene_id) + '_altered_scene_ade_' + str(
+                    round(self.all_ade['observed'][-1], 3)).replace(".","_") + '.png'
                 filename_original = self.output_dir + str(scene_id) + '_original_scene.png'
             else:
                 filename = self.output_dir + str(scene_id) + '_altered_scene.png'

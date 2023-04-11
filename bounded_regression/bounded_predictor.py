@@ -10,9 +10,9 @@ from trajnetbaselines.lstm.run import Trainer, draw_one_tensor, draw_two_tensor,
 from trajnetbaselines.lstm.utils import center_scene, random_rotation, save_log, calc_fde_ade
 from trajnetbaselines.lstm.non_gridbased_pooling import HiddenStateMLPPooling, NN_LSTM, SAttention
 
-from random_smooth.smooth_model import Smooth, visualize_scene
+from bounded_regression.bound_model import SmoothBounds
 
-from random_smooth.utils_me import draw_three_tensor
+from random_smooth.utils_me import draw_three_tensor, draw_with_bounds
 
 def parse_args():
     #<------------- S-ATTack arguments ----------------#
@@ -208,97 +208,48 @@ def main(epochs=10):
 
     ### NEW ###
 
-     #RANDOM IS FORCESD l.146 + l.153
+    #RANDOM IS FORCED l.146 + l.153
 
     
-    sample_size = args.sample_size 
+    sample_size = args.sample_size #100 or 1232 for full
     #sample_size = 2
     time_noise_from_end = 3
     pred_length=args.pred_length #12
     collision_treshold = 0.2 #20cm
-    smooth_model = Smooth(model, device=args.device, 
+    smth_bounds_model = SmoothBounds(model, device=args.device, 
                           sample_size = sample_size, time_noise_from_end = time_noise_from_end,
                           pred_length = pred_length, collision_treshold = collision_treshold,
                           obs_length = args.obs_length)
-
-    n0 = 100
-    n = 500 #5000
-    alpha = 0.01
-
-    PREDICTION_MODE = "just_one" # "majority"
-
-    num_draw = 2
-
+    
+    n0 = 100 #for monte carlo 
+    
     #PREPROCESS SCENES
-    all_data = smooth_model.preprocess_scenes(test_scenes, test_goals)
+    all_data = smth_bounds_model.preprocess_scenes(test_scenes, test_goals)
 
     #take a slice for test
-    #all_data = all_data[0:2]
-    idx = [246,852]
-    all_data = [all_data[i] for i in idx]
-
-    #vary noise level
-    #sigmas = [0.01, 0.04, 0.07, 0.10]
-    sigmas = [0.0, 0.003, 0.006, 0.009, 0.012] #test with no noise
-    for i,sig in enumerate(sigmas):
-
-        #print(len(all_data)) #1232 scenes !
-
-
-
-        #CERTIFY SCENES
-        filename = "out/temp_cert/results_certify_all_" + str(sig) + ".txt"
-        smooth_model.certify_all(all_data, filename, sig, n0, n, alpha)
-
-        #PREDICT SCENE
-        file = "out/temp_pred/"
-        filename_pred = file + "results_predict_all_" + str(sig) + ".txt"
-        all_pred, all_real_pred = smooth_model.predict_all(
-            all_data, filename_pred, sig, n0, alpha, PREDICTION_MODE
+    all_data = all_data[0:2]
+    #idx = [246,852]
+    #all_data = [all_data[i] for i in idx]
+    
+    r = 1.0
+    sigmas = [0.01]
+    for sigma in sigmas:
+        #predict bounds
+        filename = "out_bounds/temp.txt"
+        all_mean_pred, all_bounds, all_real_pred = smth_bounds_model.compute_bounds_all(
+            all_data, filename, sigma, n0, r
         )
+        
+        num_draw = 1
+        for j, (m_pred, b, r_pred) in enumerate(zip(all_mean_pred, all_bounds, all_real_pred)):
+            if j <= num_draw:
+                filedraw = "out_bounds/bb_sig_" + str(sigma) + "r_" + str(r) + "num_" + str(j) + '.png'        
+                draw_with_bounds(filedraw, m_pred, b[0], b[1])
 
-        # filename_fade = "out/temp_fade/results_ade_fde_" + str(sig) + ".txt"
-        # with open(filename_fade, "w+") as f:
-        #         f.write("idx\tfde\tade\n")
-
-        # all_data IS ground truth (if datapart == secret)
-
-        for j, (pred, real_pred, ground_t) in enumerate(zip(all_pred, all_real_pred, all_data)):
-            #DRAW SOME OF THE PREDICTED SCENES
-            if pred is None: #return type for solo
-                continue
-            if j < num_draw:    
-                filedraw = file + "drawing_all_three" + str(sig) + "_" + str(j) + '.png'        
-                draw_three_tensor(filedraw, pred, real_pred, ground_t[1])
-
-                # filedraw = file + "drawing_real_vs_noisy" + str(sig) + "_" + str(j) + '.png'        
-                # draw_two_tensor(filedraw, real_pred, pred)
-
-                # filedraw = file + "drawing_ground_t_vs_noisy" + str(sig) + "_" + str(j) + '.png'        
-                # draw_two_tensor(filedraw, ground_t[1], pred)
-
-            #COMPUTE METRIC
-            # fde, ade = calc_fde_ade(pred, ground_t[0])
-            # with open(filename_fade,"a") as f:
-            #     f.write(str(j)+ "\t" + str(fde) + "\t" + str(ade) +"\n")
-
-            
     
 
-    # trainer
-    # saving_name = str(args.type) + "-" + str(args.collision_type) + "-noise-"  + str(args.reg_noise) + "-w-" + str(args.reg_w) + "-barrier-" + str(args.barrier)
 
-    # trainer = Trainer(model, lr=args.lr, device=args.device, barrier=args.barrier, show_limit=args.show_limit,
-    #                   criterion=args.loss, collision_type = args.collision_type,
-    #                   obs_length=args.obs_length, reg_noise = args.reg_noise, reg_w = args.reg_w,
-    #                   pred_length=args.pred_length, augment=args.augment, normalize_scene=args.normalize_scene,
-    #                   start_length=args.start_length, obs_dropout=args.obs_dropout,
-    #                   sample_size = args.sample_size, perturb_all = args.perturb_all, threads_limit=args.threads_limit,
-    #                   speed_up=args.speed_up, saving_name=saving_name, enable_thread=args.enable_thread,
-    #                   output_dir=args.output)
-    # trainer.attack(test_scenes, test_goals)
-    # trainer.numerical_stats()
-
+    
 
 if __name__ == '__main__':
     main()

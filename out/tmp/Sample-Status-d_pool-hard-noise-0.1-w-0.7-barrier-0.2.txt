@@ -1,0 +1,8 @@
+Sample 1 Collided.
+Collision Ratio After 0 Sample: 0.9900990099009901
+Sample 2 Collided.
+Collision Ratio After 1 Sample: 0.9950248756218907
+Sample 3 Collided.
+Collision Ratio After 2 Sample: 0.9966777408637875
+Sample 4 Collided.
+Collision Ratio After 3 Sample: 0.9975062344139651
