@@ -47,7 +47,7 @@ class Smooth(object):
         self.num_classes = 2 #binary, col or no_col
         self._obs_length = obs_length
 
-    def preprocess_scenes(self, scenes: list, goals:list):
+    def preprocess_scenes(self, scenes: list, goals:list, remove_static = False):
         """
         
         return
@@ -74,14 +74,15 @@ class Smooth(object):
             scene_goal = torch.Tensor(scene_goal).to(self.device)
 
             ## remove stationnary
-            valid_scene = True
-            for agent_path in paths:
-                xs, ys = seperate_xy(agent_path)
-                if is_stationary(xs, ys): #one or more is stationary
-                    valid_scene = False #we skip this scnene
-            #print(valid_scene)
-            if not valid_scene:
-                continue
+            if remove_static:
+                valid_scene = True
+                for agent_path in paths:
+                    xs, ys = seperate_xy(agent_path)
+                    if is_stationary(xs, ys): #one or more is stationary
+                        valid_scene = False #we skip this scnene
+                #print(valid_scene)
+                if not valid_scene:
+                    continue
 
             all_data.append((scene_id, scene, scene_goal))
             #breakpoint()

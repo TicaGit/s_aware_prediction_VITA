@@ -208,7 +208,7 @@ def main(epochs=10):
 
     ### NEW ###
 
-     #RANDOM IS FORCESD l.146 + l.153
+    #RANDOM IS FORCESD l.146 + l.153
 
     
     sample_size = args.sample_size 
@@ -227,28 +227,29 @@ def main(epochs=10):
 
     PREDICTION_MODE = "just_one" # "majority"
 
-    num_draw = 2
+    num_draw = 0
 
     #PREPROCESS SCENES
-    all_data = smooth_model.preprocess_scenes(test_scenes, test_goals)
+    all_data = smooth_model.preprocess_scenes(test_scenes, test_goals, remove_static=False)
+    #there are 3146 scenes, or 1232 if we discard the solo agents
 
     #take a slice for test
     #all_data = all_data[0:2]
     idx = [246,852]
-    all_data = [all_data[i] for i in idx]
+    #all_data = [all_data[i] for i in idx]
 
     #vary noise level
     #sigmas = [0.01, 0.04, 0.07, 0.10]
-    sigmas = [0.0, 0.003, 0.006, 0.009, 0.012] #test with no noise
+    sigmas = [0.0, 0.003, 0.006, 0.009, 0.012, 0.015, 0.018] #test with no noise
     for i,sig in enumerate(sigmas):
 
-        #print(len(all_data)) #1232 scenes !
+        #print(len(all_data))  !
 
 
 
         #CERTIFY SCENES
         filename = "out/temp_cert/results_certify_all_" + str(sig) + ".txt"
-        smooth_model.certify_all(all_data, filename, sig, n0, n, alpha)
+        #smooth_model.certify_all(all_data, filename, sig, n0, n, alpha)
 
         #PREDICT SCENE
         file = "out/temp_pred/"
