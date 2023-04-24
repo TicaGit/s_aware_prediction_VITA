@@ -3,16 +3,15 @@ import os
 import argparse
 import random
 import torch
+from operator import itemgetter
 
-
-from trajnetbaselines.lstm.lstm import LSTM
+from trajnetbaselines.lstm.lstm import LSTM, drop_distant
 from trajnetbaselines.lstm.run import Trainer, draw_one_tensor, draw_two_tensor, prepare_data
-from trajnetbaselines.lstm.utils import center_scene, random_rotation, save_log, calc_fde_ade
+from trajnetbaselines.lstm.utils import center_scene, random_rotation, save_log, calc_fde_ade, seperate_xy, is_stationary
 from trajnetbaselines.lstm.non_gridbased_pooling import HiddenStateMLPPooling, NN_LSTM, SAttention
 
-from bounded_regression.bound_model import SmoothBounds
+import trajnetplusplustools
 
-from random_smooth.utils_me import draw_three_tensor, draw_with_bounds
 
 def parse_args():
     #<------------- S-ATTack arguments ----------------#
@@ -162,6 +161,7 @@ def main(epochs=10):
 
     # add args.device
     args.device = torch.device('cpu')
+    device = args.device
     # if not args.disable_cuda and torch.cuda.is_available():
     #     args.device = torch.device('cuda')
 
@@ -206,53 +206,109 @@ def main(epochs=10):
 
     print("Successfully Loaded")
 
+
     ### NEW ###
+    obs_length = args.obs_length    #9
+    pred_length = args.pred_length  #12
+    collision_treshold = 0.2 #same as in run.py
 
-    #RANDOM IS FORCED l.146 + l.153
+    ###############################
+    ### load + preproc all data ###
+    ###############################
+    all_data = []
+    for i, (filename, scene_id, paths) in enumerate(test_scenes):
 
-    
-    sample_size = args.sample_size #100 or 3146 for full
-    #sample_size = 2
-    time_noise_from_end = 3
-    pred_length=args.pred_length #12
-    collision_treshold = 0.2 #20cm
-    smth_bounds_model = SmoothBounds(model, device=args.device, 
-                          sample_size = sample_size, time_noise_from_end = time_noise_from_end,
-                          pred_length = pred_length, collision_treshold = collision_treshold,
-                          obs_length = args.obs_length)
-    
-    n0 = 100 #for monte carlo 
-    
-    #PREPROCESS SCENES
-    all_data = smth_bounds_model.preprocess_scenes(test_scenes, test_goals, remove_static = False)
-
-    #breakpoint()
-    #take a slice for test
-    all_data = all_data[0:2]
-    #idx = [246,852]
-    #all_data = [all_data[i] for i in idx]
-    
-    r = 1.0
-    sigmas = [0.01]
-    for sigma in sigmas:
-        #predict bounds
-        filename = "out_bounds/temp.txt"
-        all_mean_pred, all_bounds, all_real_pred = smth_bounds_model.compute_bounds_all(
-            all_data, filename, sigma, n0, r
-        )
-
-        #breakpoint()
+        scene = trajnetplusplustools.Reader.paths_to_xy(paths) # Now T_obs x N_agent x 2
         
-        num_draw = 1
-        for j, (m_pred, b, r_pred) in enumerate(zip(all_mean_pred, all_bounds, all_real_pred)):
-            if j <= num_draw:
-                filedraw = "out_bounds/bb_sig_" + str(sigma) + "r_" + str(r) + "num_" + str(j) + '.png'        
-                draw_with_bounds(filedraw, m_pred, b[0], b[1])
+        ## get goals
+        if test_goals is not None:
+            scene_goal = np.array(test_goals[filename][scene_id])
+        else:
+            scene_goal = np.array([[0, 0] for path in paths])
 
-    
+        ## DO Drop Distant : handle solo agent with col = "None"
+        drop_dist = True
+        if drop_dist:
+            scene, mask = drop_distant(scene)
+            scene_goal = scene_goal[mask]
+
+        scene = torch.Tensor(scene).to(device)
+        scene_goal = torch.Tensor(scene_goal).to(device)
+
+        ## DONT remove stationnary
+        remove_static = False
+        if remove_static:
+            valid_scene = True
+            for agent_path in paths:
+                xs, ys = seperate_xy(agent_path)
+                if is_stationary(xs, ys): #one or more is stationary
+                    valid_scene = False #we skip this scnene
+            #print(valid_scene)
+            if not valid_scene:
+                continue
+
+        all_data.append((scene_id, scene, scene_goal))
+        #breakpoint()
+            
+    all_data = sorted(all_data, key=itemgetter(0))
 
 
-    
+
+    ##########
+    ## iter ##
+    ##########
+    filename = "out/no_noise/no_noise_train.txt"
+    with open(filename,"w+") as f:
+        f.write("scene_id"+ "\t" + "col" + "\t" + "ade" + "\t" + "fde" + "\n")
+    tot = 0
+    for i,data in enumerate(all_data):
+
+        print(i, end="\r")
+        
+        scene_id = data[0]
+        scene = data[1]
+        scene_goal = data[2]
+
+        batch_split = torch.Tensor([0,scene.size(1)]).to(device).long()
+
+        _, model_pred = model(scene[:obs_length],  
+                                scene_goal, 
+                                batch_split, 
+                                n_predict=pred_length)
+        breakpoint()
+        model_pred = torch.cat((scene[:obs_length], model_pred[-pred_length:]))
+
+        # Each Neighbors Distance to The Main Agent
+        agents_count = len(model_pred[0]) #all calulation are rel. to 1st
+        if agents_count <= 1: #solo agents
+            with open(filename,"a") as f:
+                f.write(str(scene_id) + "\t" + str(None) + "\t" + str(None) + "\t" + str(None) + "\n")
+            continue
+
+        distances = torch.sqrt(torch.sum((torch.square(model_pred[-pred_length:]
+                            - model_pred[-pred_length:, 0].repeat_interleave(agents_count, 0).reshape(
+                            pred_length, agents_count, 2))[:, 1:]), dim=2))
+        
+        # Score
+        score = torch.min(distances).data
+
+        is_col = (score < collision_treshold)
+        col = 0
+        if is_col:
+            col = 1
+
+        fde, ade = calc_fde_ade(model_pred[-pred_length:], scene[-pred_length:])
+
+        with open(filename,"a") as f:
+            f.write(str(scene_id) + "\t" + str(col) + "\t" + str(ade) + "\t" + str(fde) + "\n")
+        
+        tot += 1
+    print(tot)
+
+
+
+
+
 
 if __name__ == '__main__':
     main()

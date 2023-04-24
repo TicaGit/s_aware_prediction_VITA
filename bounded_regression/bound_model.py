@@ -35,7 +35,7 @@ class SmoothBounds():
 
         self._obs_length = obs_length
 
-    def preprocess_scenes(self, scenes: list, goals:list):
+    def preprocess_scenes(self, scenes: list, goals:list, remove_static:bool = False):
         """
         
         return
@@ -62,14 +62,15 @@ class SmoothBounds():
             scene_goal = torch.Tensor(scene_goal).to(self.device)
 
             ## remove stationnary
-            valid_scene = True
-            for agent_path in paths:
-                xs, ys = seperate_xy(agent_path)
-                if is_stationary(xs, ys): #one or more is stationary
-                    valid_scene = False #we skip this scnene
-            #print(valid_scene)
-            if not valid_scene:
-                continue
+            if remove_static:
+                valid_scene = True
+                for agent_path in paths:
+                    xs, ys = seperate_xy(agent_path)
+                    if is_stationary(xs, ys): #one or more is stationary
+                        valid_scene = False #we skip this scnene
+                #print(valid_scene)
+                if not valid_scene:
+                    continue
 
             all_data.append((scene_id, scene, scene_goal))
             #breakpoint()
@@ -123,7 +124,6 @@ class SmoothBounds():
 
             #fde, ade = calc_fde_ade(pred, scene) #scene IS ground truth
             
-            #log(filename, scene_id, ade, fde)
 
             #IMPORTANT : replacing Tobs with real obs is done inside func
             
@@ -148,6 +148,8 @@ class SmoothBounds():
             (self.eval_eta(small_mp, small_low_b, small_up_b) - self.r)/self.sigma
         )
 
+        breakpoint( )
+
         ub = small_low_b + (small_up_b-small_low_b)*norm.cdf(
             (self.eval_eta(small_mp, small_low_b, small_up_b) + self.r)/self.sigma
         )
@@ -161,6 +163,9 @@ class SmoothBounds():
 
 
     def eval_g(self, observed, goal, batch_split,  num):
+        """
+        Evaluate the function g(x) = E(f(x + eps)), where E is the expectation, f the model and eps~N(0,I*sig^2)
+        """
         # smallest_pred = [None, None]
         # smallest_l2_norm = np.ones(self.num_classes) * np.inf
 
@@ -224,20 +229,14 @@ class SmoothBounds():
         return self.sigma*norm.ppf((g - l)/(u - l))
     
     def eval_eta_with_resampling(self, observed, goal, batch_split,  num):
+        """
+        not used
+        """
         mean_pred, l, u = self.eval_g(observed, goal, batch_split,  num)
         return self.sigma*norm.ppf((mean_pred - l)/(u - l))
 
 
 #helper functions
-
-
-
-
-def log(filename, scene_id, ade, fde):
-    with open(filename,"a+") as f: 
-        f.write(str(scene_id) + "\t" + str(sigma) + "\t" + str(col) + "\t" + str(noise_norm) + 
-                "\t" + str(ade) + "\t" + str(fde) + "\n")
-        
 def visualize_scene(scene, goal=None):
     for t in range(scene.shape[1]):
         path = scene[:, t]

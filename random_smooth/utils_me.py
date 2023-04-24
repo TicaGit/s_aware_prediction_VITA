@@ -205,11 +205,14 @@ def paths_bounds(m_pred, lb, ub, output_file = None, collision_point_neighbor=No
         
         ## MEAN prediction ##
         for cnt, agent_path in enumerate(m_pred):
+
+            #breakpoint()
             
             xs, ys = seperate_xy(agent_path)
             #pdb.set_trace()
             if cnt > 0 and is_stationary(xs, ys):
-              continue
+              continue  
+            #HERE : Only draw agent with len = 21 = 9 + 12
             if len(good_list(xs)) < len_limit:
                 continue
             if only_primary and cnt > 0:
@@ -241,6 +244,8 @@ def paths_bounds(m_pred, lb, ub, output_file = None, collision_point_neighbor=No
 
         ## boxes ##
         for cnt, (agent_lb, agent_ub) in enumerate(zip(lb, ub)):
+
+            #breakpoint()
             
             xlb, ylb = seperate_xy(agent_lb)
             xub, yub = seperate_xy(agent_ub)
@@ -258,6 +263,8 @@ def paths_bounds(m_pred, lb, ub, output_file = None, collision_point_neighbor=No
                 for xl, yl, xu, yu in zip(xlb, ylb, xub, yub):
                     width = xu - xl
                     height = yu - yl
+                    if width<=0 or height<=0:
+                        raise ValueError("bounds are wrong")
                     ax.add_patch(Rectangle((xl, yl), width, height, 
                                            facecolor = box_color, alpha = 0.3,
                                            edgecolor = other_color))
