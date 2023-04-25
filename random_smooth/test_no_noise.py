@@ -4,6 +4,7 @@ import argparse
 import random
 import torch
 from operator import itemgetter
+import matplotlib.pyplot as plt
 
 from trajnetbaselines.lstm.lstm import LSTM, drop_distant
 from trajnetbaselines.lstm.run import Trainer, draw_one_tensor, draw_two_tensor, prepare_data
@@ -34,7 +35,7 @@ def parse_args():
                         choices=('hard', 'soft'),
                         help='method used for attack')
     parser.add_argument('--data_part', default='test',
-                        choices=('test', 'train', 'val', 'secret'),
+                        choices=('test', 'train', 'val', 'secret', 'secret_v2'),
                         help='data part to perform attack on')
     parser.add_argument('--models_path', default='trajnetbaselines/lstm/Target-Model/d_pool.state',
                         help='the directory of the model')
@@ -173,6 +174,9 @@ def main(epochs=10):
         test_scenes, test_goals = prepare_data(args.path, subset='/train/', sample=args.sample, goals=args.goals)
     elif args.data_part == 'secret': #NEW - UNTRACKED - ONLY HERE LOCALLY
         test_scenes, test_goals = prepare_data(args.path, subset='/test_private/', sample=args.sample, goals=args.goals)
+    elif args.data_part == 'secret_v2': #NEW - UNTRACKED - ONLY HERE LOCALLY
+        test_scenes, test_goals = prepare_data(args.path, subset='/test_private_v2/', sample=args.sample, goals=args.goals)
+        
 
     # create model (Various interaction/pooling modules)
     pool = None
@@ -251,19 +255,21 @@ def main(epochs=10):
         #breakpoint()
             
     all_data = sorted(all_data, key=itemgetter(0))
+    #3113 tot lenght
 
 
 
     ##########
     ## iter ##
     ##########
-    filename = "out/no_noise/no_noise_train.txt"
+    filename = "out/no_noise/no_noise_nan.txt"
     with open(filename,"w+") as f:
         f.write("scene_id"+ "\t" + "col" + "\t" + "ade" + "\t" + "fde" + "\n")
     tot = 0
     for i,data in enumerate(all_data):
+        tot += 1
 
-        print(i, end="\r")
+        print(i)#, end="\r")
         
         scene_id = data[0]
         scene = data[1]
@@ -271,18 +277,34 @@ def main(epochs=10):
 
         batch_split = torch.Tensor([0,scene.size(1)]).to(device).long()
 
-        _, model_pred = model(scene[:obs_length],  
+        _, model_pred = model(scene[:obs_length].clone(),  
                                 scene_goal, 
                                 batch_split, 
                                 n_predict=pred_length)
-        breakpoint()
-        model_pred = torch.cat((scene[:obs_length], model_pred[-pred_length:]))
+        #breakpoint()
+
+        # model_pred_orig = model_pred.clone().detach()
+
+        if torch.isnan(model_pred[:,0,:]).any():
+            breakpoint()
+        
+        #necessary : if any(distances) is nan, then torch.min = nan -> never a colision
+        pred_nan = torch.isnan(model_pred)
+        for j in range(len(model_pred)):
+            for k in range(len(model_pred[0])):
+                if any(pred_nan[j, k].tolist()):
+                    model_pred.data[j, k] = 10000
+                    model_pred[j, k].detach()
+
+        #model_pred = torch.cat((scene[:obs_length], model_pred[-pred_length:]))
+
+        #model_pred = torch.cat((model_pred, torch.zeros(2,model_pred.shape[1],2))) #to draw
 
         # Each Neighbors Distance to The Main Agent
         agents_count = len(model_pred[0]) #all calulation are rel. to 1st
         if agents_count <= 1: #solo agents
             with open(filename,"a") as f:
-                f.write(str(scene_id) + "\t" + str(None) + "\t" + str(None) + "\t" + str(None) + "\n")
+                f.write(str(scene_id) + "\t" + str(-1) + "\t" + str(-1) + "\t" + str(-1) + "\n")
             continue
 
         distances = torch.sqrt(torch.sum((torch.square(model_pred[-pred_length:]
@@ -292,19 +314,44 @@ def main(epochs=10):
         # Score
         score = torch.min(distances).data
 
-        is_col = (score < collision_treshold)
-        col = 0
-        if is_col:
-            col = 1
+        col = int(score < collision_treshold)
 
+
+        #orig scene treat without nan replacement
+        # distances_orig = torch.sqrt(torch.sum((torch.square(model_pred_orig[-pred_length:]
+        #                     - model_pred_orig[-pred_length:, 0].repeat_interleave(agents_count, 0).reshape(
+        #                     pred_length, agents_count, 2))[:, 1:]), dim=2))
+        # score_orig = torch.min(distances_orig).data
+
+        # col_orig = int(score_orig < collision_treshold)
+
+        # if col != col_orig:
+        #     breakpoint()
+
+        #metric
         fde, ade = calc_fde_ade(model_pred[-pred_length:], scene[-pred_length:])
 
         with open(filename,"a") as f:
             f.write(str(scene_id) + "\t" + str(col) + "\t" + str(ade) + "\t" + str(fde) + "\n")
+
+        # if i == 119:
+        #     visualize_scene(model_pred_orig)
+        #     visualize_scene(model_pred)
+        #     breakpoint()
+        #     draw_two_tensor("out/no_noise/first_display", model_pred, scene)
         
-        tot += 1
     print(tot)
 
+def visualize_scene(scene, goal=None):
+    for t in range(scene.shape[1]):
+        path = scene[:, t]
+        plt.plot(path[:, 0], path[:, 1], label = t)
+    if goal is not None:
+        for t in range(goal.shape[0]):
+            goal_t = goal[t]
+            plt.scatter(goal_t[0], goal_t[1])
+    plt.legend()
+    plt.show()
 
 
 

@@ -130,3 +130,4 @@ dmypy.json
 
 #specific file
 DATA_BLOCK/trajdata/test_private/
+DATA_BLOCK/trajdata/test_private_v2/
