@@ -1,0 +1,434 @@
+Collision Ratio:
+0.0
+P-avg on observed trajectories:
+nan
+
+--------------------END OF CHECKPOINT(gone 50 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.010308215647871353
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 100 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.0272090333990885
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 150 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.030455306837216388
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 200 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.05262944820047771
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 250 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.04729569946961251
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 300 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.04335134822692986
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 350 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.0404030201257544
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 400 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.035954248219141144
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 450 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.034412258861156654
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 500 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03492582856932777
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 550 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03378321312139998
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 600 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.034320837428433254
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 650 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.037626083558848646
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 700 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03648599343252118
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 750 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03797420285819167
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 800 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03809478458589779
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 850 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.0359950956682152
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 900 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03514339570398611
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 950 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.036400036400036404
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1000 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03753573112867056
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1050 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03584525877519508
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1100 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.034300489881355485
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1150 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.035442738879840674
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1200 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.034035380588487936
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1250 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03426764589060833
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1300 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.033758186360192344
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1350 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03326078625606467
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1400 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.033519318999169004
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1450 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.032388445422095666
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1500 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03263686268366395
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1550 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03413379182179632
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1600 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.033721436410567684
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1650 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03509794706753678
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1700 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03639493705986678
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1750 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.035954854186212436
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1800 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.035538351348543745
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1850 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03459268444553249
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1900 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.033696040974385826
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 1950 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03486591780738854
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2000 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.035485285927619875
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2050 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.035610993209849805
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2100 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.035244195281037206
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2150 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03582895806633869
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2200 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.0354735721887194
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2250 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.036467326593468394
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2300 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.036543265076246445
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2350 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03577426020934255
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2400 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.0362885101504736
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2450 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.035973985553817485
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2500 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03646438182963999
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2550 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03614443783739667
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2600 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03621793283289045
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2650 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03592800925146238
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2700 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03526805559127262
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2750 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03535340781598912
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2800 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03544829688657608
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2850 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.0348552288071495
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2900 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03425819027684043
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 2950 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.03538916282722336
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 3000 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.035145772063089976
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 3050 / total 3146 scenes--------------------
+
+Collision Ratio:
+0.035551090831406285
+P-avg on observed trajectories:
+0.0
+
+--------------------END OF CHECKPOINT(gone 3100 / total 3146 scenes--------------------
+

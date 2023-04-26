@@ -329,7 +329,7 @@ class Trainer(object):
 
         best_outputs_perturbed = outputs.clone()
 
-        counter_lim = 70
+        counter_lim = 1
         counter = counter_lim
         while (counter != 0):
 
@@ -624,7 +624,7 @@ def main(epochs=10):
     args = parser.parse_args()
 
 
-    if args.sample < 1.0:
+    if args.sample < 1.0 or True:
         torch.manual_seed("080819")
         random.seed(1)
 
