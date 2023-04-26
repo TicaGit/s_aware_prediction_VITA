@@ -239,8 +239,8 @@ def main(epochs=10):
     #all_data = [all_data[i] for i in idx]
 
     #vary noise level
-    #sigmas = [0.01, 0.04, 0.07, 0.10]
-    sigmas = [0.012, 0.015, 0.018] #test with no noise
+    #sigmas = []
+    sigmas = [0.0, 0.04, 0.08, 0.12, 0.16, 0.2] #test with no noise
     for i,sig in enumerate(sigmas):
 
         #print(len(all_data))  !

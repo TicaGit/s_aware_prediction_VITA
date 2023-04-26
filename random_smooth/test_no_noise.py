@@ -223,6 +223,10 @@ def main(epochs=10):
     for i, (filename, scene_id, paths) in enumerate(test_scenes):
 
         scene = trajnetplusplustools.Reader.paths_to_xy(paths) # Now T_obs x N_agent x 2
+
+        #filtered_tensor = scene[~torch.any(scene[:obs_length].isnan(),dim=0)]
+        #scene = scene[:obs_length] #cut at obs lenght
+
         
         ## get goals
         if test_goals is not None:
@@ -255,14 +259,17 @@ def main(epochs=10):
         #breakpoint()
             
     all_data = sorted(all_data, key=itemgetter(0))
-    #3113 tot lenght
+    #3146 tot lenght of private secret test set
+
+    #13718 training data
+
 
 
 
     ##########
     ## iter ##
     ##########
-    filename = "out/no_noise/no_noise_nan.txt"
+    filename = "out/no_noise/random.txt"
     with open(filename,"w+") as f:
         f.write("scene_id"+ "\t" + "col" + "\t" + "ade" + "\t" + "fde" + "\n")
     tot = 0
@@ -285,8 +292,8 @@ def main(epochs=10):
 
         # model_pred_orig = model_pred.clone().detach()
 
-        if torch.isnan(model_pred[:,0,:]).any():
-            breakpoint()
+        # if torch.isnan(model_pred[:,0,:]).any():
+        #     breakpoint() #never :)
         
         #necessary : if any(distances) is nan, then torch.min = nan -> never a colision
         pred_nan = torch.isnan(model_pred)
@@ -333,6 +340,8 @@ def main(epochs=10):
 
         with open(filename,"a") as f:
             f.write(str(scene_id) + "\t" + str(col) + "\t" + str(ade) + "\t" + str(fde) + "\n")
+
+        #breakpoint()
 
         # if i == 119:
         #     visualize_scene(model_pred_orig)

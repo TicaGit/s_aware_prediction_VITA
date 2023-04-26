@@ -185,7 +185,7 @@ class Smooth(object):
 
             #compute ade/fde with ground truth
             if pred is not None:
-                fde, ade = calc_fde_ade(pred, scene) #scene IS ground truth
+                fde, ade = calc_fde_ade(pred[-self.pred_length:], scene[-self.pred_length:]) #scene IS ground truth
             else : #handle solo agent
                 fde,ade = -2, -2
             #warning, can be None
@@ -418,6 +418,14 @@ class Smooth(object):
             _, outputs_perturbed = self.slstm(
                 noisy_observation, goals, batch_split, n_predict=self.pred_length
             )
+
+            pred_nan = torch.isnan(outputs_perturbed)
+            for j in range(len(outputs_perturbed)):
+                for k in range(len(outputs_perturbed[0])):
+                    if any(pred_nan[j, k].tolist()):
+                        outputs_perturbed.data[j, k] = 10000
+                        outputs_perturbed[j, k].detach()
+
             return outputs_perturbed, noise    
     
     
