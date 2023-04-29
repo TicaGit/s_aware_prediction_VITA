@@ -8,10 +8,10 @@ py -m bounded_regression.bounded_predictor ^
 --reg_w 0.7 ^
 --perturb_all true ^
 --threads_limit 1 ^
---data_part test ^
+--data_part secret ^
 --collision_type hard ^
 --speed_up true ^
---sample_size 1232 ^
+--sample_size 9999 ^
 --enable_thread false ^
 --output out/tmp/ ^
 --models_path trajnetbaselines/lstm/Target-Model/d_pool.state

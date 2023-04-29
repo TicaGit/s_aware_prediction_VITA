@@ -232,7 +232,7 @@ def main(epochs=10):
     #idx = [246,852]
     #all_data = [all_data[i] for i in idx]
     
-    r = 1.0
+    r = 0.01
     sigmas = [0.01]
     for sigma in sigmas:
         #predict bounds

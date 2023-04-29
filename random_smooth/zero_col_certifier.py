@@ -240,7 +240,7 @@ def main(epochs=10):
 
     #vary noise level
     #sigmas = []
-    sigmas = [0.0, 0.04, 0.08, 0.12, 0.16, 0.2] #test with no noise
+    sigmas = [0.0, 0.004, 0.008, 0.012, 0.016, 0.02] #test with no noise [idea : 0.001-0.02]
     for i,sig in enumerate(sigmas):
 
         #print(len(all_data))  !

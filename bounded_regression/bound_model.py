@@ -24,6 +24,7 @@ class SmoothBounds():
                  pred_length = 12,
                  collision_treshold = 0.2,
                  obs_length = 9,
+                 bound_margin = 0.2
                  ) -> None:
         self.model = model
         self.model.eval()
@@ -34,6 +35,7 @@ class SmoothBounds():
         self.collision_treshold = collision_treshold
 
         self._obs_length = obs_length
+        self.bound_margin = bound_margin
 
     def preprocess_scenes(self, scenes: list, goals:list, remove_static:bool = False):
         """
@@ -148,7 +150,7 @@ class SmoothBounds():
             (self.eval_eta(small_mp, small_low_b, small_up_b) - self.r)/self.sigma
         )
 
-        breakpoint( )
+        #breakpoint( )
 
         ub = small_low_b + (small_up_b-small_low_b)*norm.cdf(
             (self.eval_eta(small_mp, small_low_b, small_up_b) + self.r)/self.sigma
@@ -156,14 +158,96 @@ class SmoothBounds():
 
         bounds = torch.stack((lb, ub), dim=0)
 
-        #breakpoint()
+        breakpoint()
 
         return mean_pred, bounds
-
-
+    
 
     def eval_g(self, observed, goal, batch_split,  num):
         """
+        WRONG : 
+        Evaluate the function g(x) = E(f(x + eps)), where E is the expectation, f the model and eps~N(0,I*sig^2)
+        """
+        # smallest_pred = [None, None]
+        # smallest_l2_norm = np.ones(self.num_classes) * np.inf
+
+        with torch.no_grad():
+            #necessary to put first iter here 
+            outputs_perturbed, noise = self._sample_noise(observed.detach().clone(), goal, batch_split)
+            #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
+            #outputs_perturbed = torch.cat((observed + noise, outputs_perturbed[-self.pred_length:]))
+
+            #remoove nans
+            outputs_perturbed_neg10000 = outputs_perturbed.clone()
+            pred_nan = torch.isnan(outputs_perturbed)
+            for j in range(len(outputs_perturbed)):
+                for k in range(len(outputs_perturbed[0])):
+                    if any(pred_nan[j, k].tolist()):
+                        outputs_perturbed.data[j, k] = 10000
+                        outputs_perturbed_neg10000.data[j,k] = -10000
+                        outputs_perturbed[j, k].detach()
+                        outputs_perturbed_neg10000[j, k].detach()
+            
+            low_tot, _ = outputs_perturbed.view(-1, outputs_perturbed.shape[2]).min(axis=0)
+            high_tot, _ = outputs_perturbed_neg10000.view(-1, outputs_perturbed_neg10000.shape[2]).max(axis=0)
+            mean_pred = outputs_perturbed.clone() #clone !
+
+            #lx, ly = torch.min(outputs_perturbed, )
+            
+
+
+            #visualize_scene(mean_pred)
+            #breakpoint()
+
+            for n in range(num - 1):
+                #predict output
+                outputs_perturbed, noise = self._sample_noise(observed.detach().clone(), goal, batch_split)
+
+                #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
+                #outputs_perturbed = torch.cat((observed + noise, outputs_perturbed[-self.pred_length:]))
+
+                outputs_perturbed_neg10000 = outputs_perturbed.clone()
+                pred_nan = torch.isnan(outputs_perturbed)
+                for j in range(len(outputs_perturbed)):
+                    for k in range(len(outputs_perturbed[0])):
+                        if any(pred_nan[j, k].tolist()):
+                            outputs_perturbed.data[j, k] = 10000
+                            outputs_perturbed_neg10000.data[j,k] = -10000
+                            outputs_perturbed[j, k].detach()
+                            outputs_perturbed_neg10000[j, k].detach()
+                
+                low, _ = outputs_perturbed.view(-1, outputs_perturbed.shape[2]).min(axis=0)
+                high, _ = outputs_perturbed_neg10000.view(-1, outputs_perturbed_neg10000.shape[2]).max(axis=0)
+                low_tot = torch.minimum(low_tot, low)
+                high_tot = torch.maximum(high_tot, high)
+
+
+                mean_pred += outputs_perturbed
+
+
+
+                #visualize_scene(outputs_perturbed)
+                #breakpoint()
+
+            mean_pred /= num
+
+            #add a margin
+            diff = high_tot - low_tot
+            low_tot -= diff*self.bound_margin
+            high_tot += diff*self.bound_margin
+
+            low_tot = low_tot.repeat(mean_pred.shape[0], mean_pred.shape[1], 1)
+            high_tot = high_tot.repeat(mean_pred.shape[0], mean_pred.shape[1], 1)
+
+            #breakpoint()
+
+            return mean_pred, low_tot, high_tot
+
+
+
+    def eval_g_wrong_way(self, observed, goal, batch_split,  num):
+        """
+        WRONG : 
         Evaluate the function g(x) = E(f(x + eps)), where E is the expectation, f the model and eps~N(0,I*sig^2)
         """
         # smallest_pred = [None, None]
