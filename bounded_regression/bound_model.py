@@ -115,14 +115,23 @@ class SmoothBounds():
                                       n_predict=self.pred_length)
 
             #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
+            #HERE STICHING TO MAKE LEN == 21
             real_pred = torch.cat((observed, real_pred[-self.pred_length:]))
-            all_real_pred.append(real_pred)
-            
-
+    
             #mean smoothing bounds computation
             mean_pred, bounds = self.compute_bounds_scene(observed, scene_goal, batch_split)
+
+            #HERE STICHING TO MAKE LEN == 21
+            mean_pred = torch.concat((observed, mean_pred[-self.pred_length:]))
+            #breakpoint()
+
+            #record
+            all_real_pred.append(real_pred)
             all_mean_pred.append(mean_pred)
             all_bounds.append(bounds)
+
+            
+
 
             #fde, ade = calc_fde_ade(pred, scene) #scene IS ground truth
             
@@ -158,14 +167,14 @@ class SmoothBounds():
 
         bounds = torch.stack((lb, ub), dim=0)
 
-        breakpoint()
+        #breakpoint()
 
         return mean_pred, bounds
     
 
     def eval_g(self, observed, goal, batch_split,  num):
         """
-        WRONG : 
+        Right : 
         Evaluate the function g(x) = E(f(x + eps)), where E is the expectation, f the model and eps~N(0,I*sig^2)
         """
         # smallest_pred = [None, None]
@@ -176,6 +185,10 @@ class SmoothBounds():
             outputs_perturbed, noise = self._sample_noise(observed.detach().clone(), goal, batch_split)
             #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
             #outputs_perturbed = torch.cat((observed + noise, outputs_perturbed[-self.pred_length:]))
+
+            #breakpoint()
+
+            mean_pred = outputs_perturbed.clone() #clone ! #keep nan is mean
 
             #remoove nans
             outputs_perturbed_neg10000 = outputs_perturbed.clone()
@@ -190,7 +203,6 @@ class SmoothBounds():
             
             low_tot, _ = outputs_perturbed.view(-1, outputs_perturbed.shape[2]).min(axis=0)
             high_tot, _ = outputs_perturbed_neg10000.view(-1, outputs_perturbed_neg10000.shape[2]).max(axis=0)
-            mean_pred = outputs_perturbed.clone() #clone !
 
             #lx, ly = torch.min(outputs_perturbed, )
             
@@ -205,6 +217,8 @@ class SmoothBounds():
 
                 #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
                 #outputs_perturbed = torch.cat((observed + noise, outputs_perturbed[-self.pred_length:]))
+
+                mean_pred += outputs_perturbed #keep nan is mean
 
                 outputs_perturbed_neg10000 = outputs_perturbed.clone()
                 pred_nan = torch.isnan(outputs_perturbed)
@@ -222,7 +236,6 @@ class SmoothBounds():
                 high_tot = torch.maximum(high_tot, high)
 
 
-                mean_pred += outputs_perturbed
 
 
 

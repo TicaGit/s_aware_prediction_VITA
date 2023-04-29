@@ -17,11 +17,13 @@ def draw_three_tensor(filename, noisy_pred, pred,  gt, collision_point_neighbor=
     with paths3(noisy_pred, pred, gt, filename, collision_point_neighbor, collision_point_main):
         pass
 
-def draw_with_bounds(filename, m_pred, lb, ub, collision_point_neighbor=None, collision_point_main=None):
+def draw_with_bounds(filename, m_pred, lb, ub, r_pred = None, collision_point_neighbor=None, collision_point_main=None):
     m_pred = m_pred.permute(1, 0, 2).tolist()
+    if r_pred is not None:
+        r_pred = r_pred.permute(1, 0, 2).tolist()
     lb = lb.permute(1, 0, 2).tolist()
     ub = ub.permute(1, 0, 2).tolist()
-    with paths_bounds(m_pred, lb, ub, filename, collision_point_neighbor, collision_point_main):
+    with paths_bounds(m_pred, lb, ub, r_pred, filename, collision_point_neighbor, collision_point_main):
         pass
 
 
@@ -171,7 +173,7 @@ def paths3(noisy_pred, pred, ground_t, output_file=None, collision_point_neighbo
 
 
 @contextmanager
-def paths_bounds(m_pred, lb, ub, output_file = None, collision_point_neighbor=None, collision_point_main=None):
+def paths_bounds(m_pred, lb, ub, r_pred, output_file = None, collision_point_neighbor=None, collision_point_main=None):
     """Context to plot paths."""
 
     l1, l2 = 8, 8
@@ -196,15 +198,15 @@ def paths_bounds(m_pred, lb, ub, output_file = None, collision_point_neighbor=No
 
         #colors        
         mean_pred_color = get_hex(220,20,60) #red
-        pred_color = get_hex(240, 240, 30) #yellowish
-        ground_t_color = get_hex(143,147,83) #green 
-        other_color = get_hex(119, 119, 119) #grey
+        other_color = get_hex(220, 120, 80) #redish
+        real_color = get_hex(143,147,83) #green 
 
+        box_color_border = get_hex(119, 119, 119) #grey
         box_color = get_hex(90, 90, 90) #light grey
         
         
         ## MEAN prediction ##
-        for cnt, agent_path in enumerate(m_pred):
+        for cnt, (agent_path, agent_lb, agent_ub) in enumerate(zip(m_pred, lb, ub)):
 
             #breakpoint()
             
@@ -215,6 +217,7 @@ def paths_bounds(m_pred, lb, ub, output_file = None, collision_point_neighbor=No
             #HERE : Only draw agent with len = 21 = 9 + 12
             if len(good_list(xs)) < len_limit:
                 continue
+                pass
             if only_primary and cnt > 0:
                 continue
             if cnt == 0:
@@ -242,22 +245,10 @@ def paths_bounds(m_pred, lb, ub, output_file = None, collision_point_neighbor=No
                     ax.plot(xs[j], ys[j], color= other_color, marker='o', linestyle='None', zorder=0.9,
                             markersize=m_size_other)
 
-        ## boxes ##
-        for cnt, (agent_lb, agent_ub) in enumerate(zip(lb, ub)):
-
-            #breakpoint()
-            
+            ## boxes ##
             xlb, ylb = seperate_xy(agent_lb)
             xub, yub = seperate_xy(agent_ub)
-            #pdb.set_trace()
-            # if cnt > 0 and is_stationary(xs, ys):
-            #   continue
-            # if len(good_list(xs)) < len_limit:
-            #     continue
-            # if only_primary and cnt > 0:
-            #     continue
 
-            #breakpoint()
             draw_all = True
             if cnt == 0 or draw_all: #
                 for xl, yl, xu, yu in zip(xlb, ylb, xub, yub):
@@ -266,37 +257,29 @@ def paths_bounds(m_pred, lb, ub, output_file = None, collision_point_neighbor=No
                     if width<=0 or height<=0:
                         raise ValueError("bounds are wrong")
                     ax.add_patch(Rectangle((xl, yl), width, height, 
-                                           facecolor = box_color, alpha = 0.3,
-                                           edgecolor = other_color))
+                                           facecolor = box_color, alpha = 0.2,
+                                           edgecolor = box_color_border))
+        #breakpoint()
+        if r_pred is not None:
+            for cnt, agent_path in enumerate(r_pred):
+                xs, ys = seperate_xy(agent_path)
+                #pdb.set_trace()
+                if cnt > 0 and is_stationary(xs, ys):
+                    continue  
+                #HERE : Only draw agent with len = 21 = 9 + 12
+                if len(good_list(xs)) < len_limit:
+                    continue
+                if only_primary and cnt > 0:
+                    continue
+                ax.plot(xs[0:1], ys[0:1], color=real_color , marker=start_symbol, linestyle='None')
+                ax.plot(xs[-1:], ys[-1:], color=real_color , marker=end_symbol, linestyle='None')
 
-                # ax.plot(xs[0:1], ys[0:1], color=pred_color , marker=start_symbol, linestyle='None')
-                # ax.plot(xs[-1:], ys[-1:], color=pred_color , marker=end_symbol, linestyle='None')
-
-                # ax.plot(xs[:obs_len], ys[:obs_len], color=pred_color , linestyle='-')
-                # ax.plot(xs[obs_len - 1:], ys[obs_len - 1:], color=pred_color , linestyle='dotted')
-                # for j in range(1, obs_len):
-                #     ax.plot(xs[j], ys[j], color=pred_color , marker='o', linestyle='None', zorder=0.9, markersize=m_size_p)
-                # for j in range(obs_len - 1, len(xs) - 1):
-                #     ax.plot(xs[j], ys[j], color=pred_color , marker='o', linestyle='None', zorder=0.9, markersize=m_size_p)
-
-            else:
-                continue
-                # xs = good_list(xs)
-                # ys = good_list(ys)
-                # ax.plot(xs[0:1], ys[0:1], color=other_color, marker=start_symbol, linestyle='None')
-                # ax.plot(xs[-1:], ys[-1:], color=other_color, marker=end_symbol, linestyle='None')
-
-                
-                # ax.plot(xs[:obs_len], ys[:obs_len], color=other_color, linestyle='-')
-                # ax.plot(xs[obs_len - 1:], ys[obs_len - 1:], color=other_color, linestyle='dotted')
-
-                # for j in range(1, len(xs) - 1):
-                #     ax.plot(xs[j], ys[j], color= other_color, marker='o', linestyle='None', zorder=0.9,
-                #             markersize=m_size_other)
-
-
-
-    
+                ax.plot(xs[:obs_len], ys[:obs_len], color=real_color , linestyle='-')
+                ax.plot(xs[obs_len - 1:], ys[obs_len - 1:], color=real_color , linestyle='dotted')
+                for j in range(1, obs_len):
+                    ax.plot(xs[j], ys[j], color=real_color , marker='o', linestyle='None', zorder=0.9, markersize=m_size_p)
+                for j in range(obs_len - 1, len(xs) - 1):
+                    ax.plot(xs[j], ys[j], color=real_color , marker='o', linestyle='None', zorder=0.9, markersize=m_size_p)
 
 
         orange_color = get_hex(210,97,42)

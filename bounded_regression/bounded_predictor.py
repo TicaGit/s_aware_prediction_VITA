@@ -233,7 +233,7 @@ def main(epochs=10):
     #all_data = [all_data[i] for i in idx]
     
     r = 0.01
-    sigmas = [0.01]
+    sigmas = [0.1]
     for sigma in sigmas:
         #predict bounds
         filename = "out_bounds/temp.txt"
@@ -241,13 +241,13 @@ def main(epochs=10):
             all_data, filename, sigma, n0, r
         )
 
-        #breakpoint()
+        breakpoint()
         
-        num_draw = 1
+        num_draw = 2
         for j, (m_pred, b, r_pred) in enumerate(zip(all_mean_pred, all_bounds, all_real_pred)):
-            if j <= num_draw:
+            if j < num_draw:
                 filedraw = "out_bounds/bb_sig_" + str(sigma) + "r_" + str(r) + "num_" + str(j) + '.png'        
-                draw_with_bounds(filedraw, m_pred, b[0], b[1])
+                draw_with_bounds(filedraw, m_pred, b[0], b[1], r_pred)
 
     
 
