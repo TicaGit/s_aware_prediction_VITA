@@ -366,11 +366,14 @@ def main():
 
     scipy.seterr('ignore')
 
+    #call  : py -m evaluator.trajnet_evaluator --path trajdata --output evaluator/copy_of_model/lstm_d_pool.pkl
+
     ## Path to the data folder name to predict
     args.path = 'DATA_BLOCK/' + args.path + '/'
 
     ## Test_pred : Folders for saving model predictions
-    args.path = args.path + 'test_pred/'
+    #args.path = args.path + 'test_pred/' 
+    args.path = args.path + 'test_private_pred/' 
 
     ## Writes to Test_pred
     ### Does this overwrite existing predictions? No. ###
@@ -416,7 +419,8 @@ def main():
             table.add_collision_entry(labels[num], col_result)
 
             submit_datasets = [args.path + name + '/' + f for f in list_sub if 'collision_test.ndjson' not in f]
-            true_datasets = [args.path.replace('pred', 'private') + f for f in list_sub if 'collision_test.ndjson' not in f]
+            #true_datasets = [args.path.replace('pred', 'private') + f for f in list_sub if 'collision_test.ndjson' not in f]
+            true_datasets = [args.path.replace('_pred', '') + f for f in list_sub if 'collision_test.ndjson' not in f]
 
             ## Evaluate submitted datasets with True Datasets [The main eval function]
             # results = {submit_datasets[i].replace(args.path, '').replace('.ndjson', ''):
