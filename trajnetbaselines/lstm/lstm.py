@@ -10,6 +10,9 @@ from .modules import Hidden2Normal, InputEmbedding
 from .. import augmentation
 from .utils import center_scene
 
+#added by thibaud
+from trajnetbaselines.lstm.non_gridbased_pooling import NN_LSTM
+
 NAN = float('nan')
 
 def drop_distant(xy, r=6.0):
@@ -272,9 +275,12 @@ class LSTMPredictor(object):
             torch.save(state, f)
 
     @staticmethod
-    def load(filename):
+    def load(filename, hidden_dim=128, out_dim=256): #DPool same args as in the args
         with open(filename, 'rb') as f:
-            return torch.load(f)
+            #return torch.load(f)
+            model = LSTM(pool = NN_LSTM(hidden_dim=hidden_dim, out_dim=out_dim)) #nnlstm for dpool
+            model.load_state_dict(torch.load(filename))
+            return LSTMPredictor(model)
 
 
     def __call__(self, paths, scene_goal, n_predict=12, modes=1, predict_all=True, obs_length=9, start_length=0, args=None):
