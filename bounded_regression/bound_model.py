@@ -151,7 +151,7 @@ class SmoothBounds():
 
         return all_mean_pred, all_bounds, all_real_pred
     
-    def compute_bounds_scene(self, observed, goal, batch_split) -> tuple[torch.Tensor, torch.Tensor]:
+    def compute_bounds_scene(self, observed, goal, batch_split):# -> tuple[torch.Tensor, torch.Tensor]:
         """
         computes the bounds according to corolary 2, eq9 in median smothing paper 
         note : this bound are based on the MEAN (not median)

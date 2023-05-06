@@ -238,7 +238,7 @@ def main(epochs=10):
         for sigma in sigmas:
             print(f"sigma: {sigma}, r: {r}")
             #predict bounds
-            filename = "out_bounds/on_sbatch/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
+            filename = "out_bounds/on_sbatch_dpool/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
             all_mean_pred, all_bounds, all_real_pred = smth_bounds_model.compute_bounds_all(
                 all_data, filename, sigma, n0, r
             )
