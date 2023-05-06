@@ -221,33 +221,34 @@ def main(epochs=10):
                           pred_length = pred_length, collision_treshold = collision_treshold,
                           obs_length = args.obs_length)
     
-    n0 = 100 #for monte carlo 
+    n0 = 500 #for monte carlo 
     
     #PREPROCESS SCENES
     all_data = smth_bounds_model.preprocess_scenes(test_scenes, test_goals, remove_static = False)
 
     #breakpoint()
     #take a slice for test
-    all_data = all_data[0:2]
+    #all_data = all_data[0:2]
     #idx = [246,852]
     #all_data = [all_data[i] for i in idx]
     
-    r = 0.01
-    sigmas = [0.1]
-    for sigma in sigmas:
-        #predict bounds
-        filename = "out_bounds/temp.txt"
-        all_mean_pred, all_bounds, all_real_pred = smth_bounds_model.compute_bounds_all(
-            all_data, filename, sigma, n0, r
-        )
+    rs = [0.01, 0.05, 0.1] #[0.001, 0.01, 0.1, 1] 
+    sigmas = [0.1, 0.5, 1] #min ~sig = 10*r
+    for r in rs:
+        for sigma in sigmas:
+            #predict bounds
+            filename = "out_bounds/on_sbatch/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
+            all_mean_pred, all_bounds, all_real_pred = smth_bounds_model.compute_bounds_all(
+                all_data, filename, sigma, n0, r
+            )
 
-        breakpoint()
-        
-        num_draw = 2
-        for j, (m_pred, b, r_pred) in enumerate(zip(all_mean_pred, all_bounds, all_real_pred)):
-            if j < num_draw:
-                filedraw = "out_bounds/bb_sig_" + str(sigma) + "r_" + str(r) + "num_" + str(j) + '.png'        
-                draw_with_bounds(filedraw, m_pred, b[0], b[1], r_pred)
+            #breakpoint()
+            
+            num_draw = 2
+            for j, (m_pred, b, r_pred) in enumerate(zip(all_mean_pred, all_bounds, all_real_pred)):
+                if j < num_draw:
+                    filedraw = "out_bounds/bb_sig_" + str(sigma) + "r_" + str(r) + "num_" + str(j) + '.png'        
+                    draw_with_bounds(filedraw, m_pred, b[0], b[1], r_pred)
 
     
 

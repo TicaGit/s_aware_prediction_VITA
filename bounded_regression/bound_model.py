@@ -93,7 +93,7 @@ class SmoothBounds():
         self.sigma = sigma
 
         with open(filename, "w+") as f:
-            f.write("scene_id\t" + "sigma\t" + "r\t" + "noise_norm\t" + "ade\t" + "fde\n")
+            f.write("scene_id\t" + "sigma\t" + "r\t" + "ade\t" + "fde\t" + "abd\t" + "fbd\n")
 
         start = 0
         all_real_pred = []
@@ -114,6 +114,7 @@ class SmoothBounds():
                                       batch_split, 
                                       n_predict=self.pred_length)
 
+            #breakpoint()
             #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
             #HERE STICHING TO MAKE LEN == 21
             real_pred = torch.cat((observed, real_pred[-self.pred_length:]))
@@ -125,6 +126,12 @@ class SmoothBounds():
             mean_pred = torch.concat((observed, mean_pred[-self.pred_length:]))
             #breakpoint()
 
+            #compute metrics : scene IS ground truth
+            fde, ade = calc_fde_ade(mean_pred[-self.pred_length:], scene[-self.pred_length:]) 
+            #compute final/average box dimensions
+            fbd, abd = calc_fbd_abd(bounds)
+            log(filename, scene_id, self.sigma, self.r, ade, fde, abd, fbd)
+
             #record
             all_real_pred.append(real_pred)
             all_mean_pred.append(mean_pred)
@@ -133,7 +140,7 @@ class SmoothBounds():
             
 
 
-            #fde, ade = calc_fde_ade(pred, scene) #scene IS ground truth
+            
             
 
             #IMPORTANT : replacing Tobs with real obs is done inside func
@@ -343,3 +350,29 @@ def visualize_scene(scene, goal=None):
             goal_t = goal[t]
             plt.scatter(goal_t[0], goal_t[1])
     plt.show()
+
+
+def calc_fbd_abd(bounds:torch.Tensor):
+    lb, ub = bounds
+    # if bounds.isnan().any():
+    #     print("bounds is nan")
+    #     breakpoint()
+
+    box_dims = ub - lb
+    #mean dimension of all box of all agents
+    abd = box_dims.nanmean()
+    #mean dimension of the FINAL box of all agents
+    fbd = box_dims[-1].nanmean()
+
+    #col = 0
+    #iterate on time
+    # for low_t, high_t in zip(lb, ub):
+    #     if is_col
+    #breakpoint()
+    return fbd.item(), abd.item()
+
+
+def log(filename, scene_id, sigma, r, ade, fde, abd, fbd):
+    with open(filename,"a+") as f: 
+        f.write(str(scene_id) + "\t" + str(sigma) + "\t" + str(r) + "\t" + 
+                str(ade) + "\t" + str(fde) + "\t" + str(abd) + "\t" + str(fbd) + "\n")

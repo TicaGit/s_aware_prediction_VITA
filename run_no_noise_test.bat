@@ -8,7 +8,7 @@ py -m random_smooth.test_no_noise ^
 --reg_w 0.7 ^
 --perturb_all true ^
 --threads_limit 1 ^
---data_part secret ^
+--data_part synth ^
 --collision_type hard ^
 --speed_up true ^
 --sample_size 9999 ^

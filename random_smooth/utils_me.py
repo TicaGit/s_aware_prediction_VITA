@@ -182,6 +182,11 @@ def paths_bounds(m_pred, lb, ub, r_pred, output_file = None, collision_point_nei
         #ax.set_aspect(1.0 , 'datalim')
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
+
+        #new
+        ax.set_aspect('equal', adjustable='box')
+        #plt.axis('scaled')
+                      
         start_symbol = 'o'
         end_symbol = 's'
 

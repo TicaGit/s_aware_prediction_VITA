@@ -5,7 +5,8 @@ setup(
     packages=[
         'trajnetbaselines',
         'trajnetbaselines.lstm',
-        'random_smooth'
+        'random_smooth',
+        'evaluator'
     ],
     install_requires=[
         'numpy',

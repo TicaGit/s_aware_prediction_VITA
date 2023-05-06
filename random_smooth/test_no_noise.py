@@ -35,7 +35,7 @@ def parse_args():
                         choices=('hard', 'soft'),
                         help='method used for attack')
     parser.add_argument('--data_part', default='test',
-                        choices=('test', 'train', 'val', 'secret', 'secret_v2'),
+                        choices=('test', 'train', 'val', 'secret', 'secret_v2', 'synth'),
                         help='data part to perform attack on')
     parser.add_argument('--models_path', default='trajnetbaselines/lstm/Target-Model/d_pool.state',
                         help='the directory of the model')
@@ -176,6 +176,8 @@ def main(epochs=10):
         test_scenes, test_goals = prepare_data(args.path, subset='/test_private/', sample=args.sample, goals=args.goals)
     elif args.data_part == 'secret_v2': #NEW - UNTRACKED - ONLY HERE LOCALLY
         test_scenes, test_goals = prepare_data(args.path, subset='/test_private_v2/', sample=args.sample, goals=args.goals)
+    elif args.data_part == 'synth': #NEW
+        test_scenes, test_goals = prepare_data(args.path, subset='/synth_data/', sample=args.sample, goals=args.goals)
         
 
     # create model (Various interaction/pooling modules)
@@ -203,6 +205,8 @@ def main(epochs=10):
     pretrained_state_dict = checkpoint['state_dict']
     model.load_state_dict(pretrained_state_dict, strict=False)
 
+    #torch.save(model.state_dict(), "evaluator/copy_of_model/lstm_d_pool.pkl")
+
     '''model = trajnetbaselines.lstm.LSTMPredictor.load(load_address).model'''
     # Freeze the model
     for p in model.parameters():
@@ -214,7 +218,7 @@ def main(epochs=10):
     ### NEW ###
     obs_length = args.obs_length    #9
     pred_length = args.pred_length  #12
-    collision_treshold = 0.2 #same as in run.py
+    collision_treshold = 0.2 #same as in run.py #orignal saeed : 0.2
 
     ###############################
     ### load + preproc all data ###
@@ -264,12 +268,12 @@ def main(epochs=10):
     #13718 training data
 
 
-
+    #all_data = all_data[0:2]
 
     ##########
     ## iter ##
     ##########
-    filename = "out/no_noise/random.txt"
+    filename = "out/no_noise/synth.txt"
     with open(filename,"w+") as f:
         f.write("scene_id"+ "\t" + "col" + "\t" + "ade" + "\t" + "fde" + "\n")
     tot = 0
