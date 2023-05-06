@@ -236,6 +236,7 @@ def main(epochs=10):
     sigmas = [0.1, 0.5, 1] #min ~sig = 10*r
     for r in rs:
         for sigma in sigmas:
+            print(f"sigma: {sigma}, r: {r}")
             #predict bounds
             filename = "out_bounds/on_sbatch/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
             all_mean_pred, all_bounds, all_real_pred = smth_bounds_model.compute_bounds_all(

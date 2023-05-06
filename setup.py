@@ -6,7 +6,8 @@ setup(
         'trajnetbaselines',
         'trajnetbaselines.lstm',
         'random_smooth',
-        'evaluator'
+        'evaluator',
+        'bounded_regression'
     ],
     install_requires=[
         'numpy',
