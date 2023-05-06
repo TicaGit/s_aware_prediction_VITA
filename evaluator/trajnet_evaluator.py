@@ -367,15 +367,19 @@ def main():
     scipy.seterr('ignore')
 
     #call  : py -m evaluator.trajnet_evaluator --path trajdata --output evaluator/copy_of_model/lstm_d_pool.pkl
-
+    DATASET = "synth" # "private" "test" "synth" "real_aicrowd"
     ## Path to the data folder name to predict
     args.path = 'DATA_BLOCK/' + args.path + '/'
 
     ## Test_pred : Folders for saving model predictions
-    #args.path = args.path + 'test_pred/' 
-
-    #args.path = args.path + 'test_private_pred/' #to evaluate test
-    args.path = args.path + 'synth_data_pred/'
+    if DATASET == "test":
+        args.path = args.path + 'test_pred/'   #all other : evaluation timed out
+    elif DATASET == "private":
+        args.path = args.path + 'test_private_pred/' #works !
+    elif DATASET == "synth":
+        args.path = args.path + 'synth_data_pred/'
+    elif DATASET == "real_aicrowd":
+        args.path = args.path + 'real_data_aicrowd_pred/'
 
     ## Writes to Test_pred
     ### Does this overwrite existing predictions? No. ###
@@ -421,8 +425,14 @@ def main():
             table.add_collision_entry(labels[num], col_result)
 
             submit_datasets = [args.path + name + '/' + f for f in list_sub if 'collision_test.ndjson' not in f]
-            #true_datasets = [args.path.replace('pred', 'private') + f for f in list_sub if 'collision_test.ndjson' not in f]
-            true_datasets = [args.path.replace('_pred', '') + f for f in list_sub if 'collision_test.ndjson' not in f]
+            
+            if DATASET == "test":
+                true_datasets = [args.path.replace('pred', 'private') + f for f in list_sub if 'collision_test.ndjson' not in f]
+            elif DATASET == "real_aicrowd":
+                true_datasets = [args.path.replace('real_data_aicrowd_pred/', 'test_private') + f for f in list_sub if 'collision_test.ndjson' not in f]
+            elif DATASET == "private":
+                #to evaluate on test_private
+                true_datasets = [args.path.replace('_pred', '') + f for f in list_sub if 'collision_test.ndjson' not in f]
 
             ## Evaluate submitted datasets with True Datasets [The main eval function]
             # results = {submit_datasets[i].replace(args.path, '').replace('.ndjson', ''):
