@@ -373,7 +373,9 @@ def main():
 
     ## Test_pred : Folders for saving model predictions
     #args.path = args.path + 'test_pred/' 
-    args.path = args.path + 'test_private_pred/' 
+
+    #args.path = args.path + 'test_private_pred/' #to evaluate test
+    args.path = args.path + 'synth_data_pred/'
 
     ## Writes to Test_pred
     ### Does this overwrite existing predictions? No. ###
