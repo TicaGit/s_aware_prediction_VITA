@@ -233,7 +233,7 @@ def main(epochs=10):
     #all_data = [all_data[i] for i in idx]
     
     rs = [0.01, 0.05, 0.1] #[0.001, 0.01, 0.1, 1] 
-    sigmas = [0.1, 0.5, 1] #min ~sig = 10*r
+    sigmas = [0.05, 0.1, 0.5, 1] #min ~sig = 10*r
     for r in rs:
         for sigma in sigmas:
             print(f"sigma: {sigma}, r: {r}")
