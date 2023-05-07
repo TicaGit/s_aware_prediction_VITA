@@ -184,11 +184,18 @@ def main(epochs=10):
     elif args.type == 's_att':
         pool = SAttention(hidden_dim=args.hidden_dim, out_dim=args.pool_dim)
 
+    #for d-pool
     model = LSTM(pool=pool,
                  embedding_dim=args.coordinate_embedding_dim,
                  hidden_dim=args.hidden_dim,
                  goal_flag=args.goals,
                  goal_dim=args.goal_dim)
+
+    # model = LSTM(pool=pool,
+    #              embedding_dim=320,
+    #              hidden_dim=128,
+    #              goal_flag=args.goals,
+    #              goal_dim=args.goal_dim)
 
     # Load model
     load_address = args.models_path
@@ -221,7 +228,7 @@ def main(epochs=10):
                           pred_length = pred_length, collision_treshold = collision_treshold,
                           obs_length = args.obs_length)
     
-    n0 = 500 #for monte carlo 
+    n0 = 100 #for monte carlo 
     
     #PREPROCESS SCENES
     all_data = smth_bounds_model.preprocess_scenes(test_scenes, test_goals, remove_static = False)
@@ -233,12 +240,13 @@ def main(epochs=10):
     #all_data = [all_data[i] for i in idx]
     
     rs = [0.01, 0.05, 0.1] #[0.001, 0.01, 0.1, 1] 
-    sigmas = [0.05, 0.1, 0.5, 1] #min ~sig = 10*r
+    sigmas = [0.05, 0.1, 0.5] #min ~sig = 10*r
     for r in rs:
         for sigma in sigmas:
             print(f"sigma: {sigma}, r: {r}")
             #predict bounds
             filename = "out_bounds/on_sbatch_dpool/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
+            #filename = "out_bounds/on_sbatch_satt/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
             all_mean_pred, all_bounds, all_real_pred = smth_bounds_model.compute_bounds_all(
                 all_data, filename, sigma, n0, r
             )
