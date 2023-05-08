@@ -275,7 +275,12 @@ class LSTMPredictor(object):
             torch.save(state, f)
 
     @staticmethod
-    def load(filename, hidden_dim=128, out_dim=256): #DPool same args as in the args
+    def load(filename):
+        with open(filename, 'rb') as f:
+            return torch.load(f)
+
+    @staticmethod
+    def load_model(filename, hidden_dim=128, out_dim=256): #DPool same args as in the args
         with open(filename, 'rb') as f:
             #return torch.load(f)
             model = LSTM(pool = NN_LSTM(hidden_dim=hidden_dim, out_dim=out_dim)) #nnlstm for dpool

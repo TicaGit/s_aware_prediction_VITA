@@ -97,7 +97,7 @@ def main(args=None):
                 goal_flag = predictor.model.goal_flag
             elif 'lstm' in model_name:
                 print("LSTM")
-                predictor = trajnetbaselines.lstm.LSTMPredictor.load(model, hidden_dim=128, out_dim=256)
+                predictor = trajnetbaselines.lstm.LSTMPredictor.load_model(model, hidden_dim=128, out_dim=256)
                 device = torch.device('cpu')
                 predictor.model.to(device)
                 goal_flag = predictor.model.goal_flag

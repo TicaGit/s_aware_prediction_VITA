@@ -367,7 +367,7 @@ def main():
     scipy.seterr('ignore')
 
     #call  : py -m evaluator.trajnet_evaluator --path trajdata --output evaluator/copy_of_model/lstm_d_pool.pkl
-    DATASET = "synth" # "private" "test" "synth" "real_aicrowd"
+    DATASET = "private" # "private" "test" "synth" "real_aicrowd"
     ## Path to the data folder name to predict
     args.path = 'DATA_BLOCK/' + args.path + '/'
 
