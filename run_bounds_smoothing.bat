@@ -3,7 +3,7 @@ py -m bounded_regression.bounded_predictor ^
 --layer_dims 1024 ^
 --barrier 0.2 ^
 --show_limit 50 ^
---type d_pool ^
+--type s_lstm ^
 --reg_noise 0.1 ^
 --reg_w 0.7 ^
 --perturb_all true ^
@@ -14,4 +14,4 @@ py -m bounded_regression.bounded_predictor ^
 --sample_size 9999 ^
 --enable_thread false ^
 --output out/tmp/ ^
---models_path trajnetbaselines/lstm/Target-Model/d_pool.state
+--models_path trajnetbaselines/lstm/Target-Model/s_lstm.state

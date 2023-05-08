@@ -224,7 +224,18 @@ def main(epochs=10):
     ### load + preproc all data ###
     ###############################
     all_data = []
+    modif = 0
     for i, (filename, scene_id, paths) in enumerate(test_scenes):
+        
+        paths_before = paths
+        if args.data_part == 'secret':
+            #drop agent > obs lenght
+            paths = drop_post_obs(paths, obs_length)
+        
+
+        if paths != paths_before:
+            modif += 1
+            #breakpoint()
 
         scene = trajnetplusplustools.Reader.paths_to_xy(paths) # Now T_obs x N_agent x 2
 
@@ -267,23 +278,27 @@ def main(epochs=10):
 
     #13718 training data
 
+    print(f"scene with post obs remooved : {modif}")
+
 
     #all_data = all_data[0:2]
 
     ##########
     ## iter ##
     ##########
-    filename = "out/no_noise/synth.txt"
+    filename = "out/no_noise/dummy.txt"
     with open(filename,"w+") as f:
-        f.write("scene_id"+ "\t" + "col" + "\t" + "ade" + "\t" + "fde" + "\n")
+        f.write("scene_id"+ "\t" + "col" + "\t" +"col_trajnetpp" + "\t" + "ade" + "\t" + "fde" + "\n")
     tot = 0
-    for i,data in enumerate(all_data):
+    diff_col = 0
+    for iter ,data in enumerate(all_data):
         tot += 1
 
-        print(i)#, end="\r")
+        print(iter)#, end="\r")
         
         scene_id = data[0]
         scene = data[1]
+        #breakpoint()
         scene_goal = data[2]
 
         batch_split = torch.Tensor([0,scene.size(1)]).to(device).long()
@@ -315,7 +330,7 @@ def main(epochs=10):
         agents_count = len(model_pred[0]) #all calulation are rel. to 1st
         if agents_count <= 1: #solo agents
             with open(filename,"a") as f:
-                f.write(str(scene_id) + "\t" + str(-1) + "\t" + str(-1) + "\t" + str(-1) + "\n")
+                f.write(str(scene_id) + "\t" + str(-1) + "\t" + str(-1) + "\t" + str(-1) + "\t" + str(-1) + "\n")
             continue
 
         distances = torch.sqrt(torch.sum((torch.square(model_pred[-pred_length:]
@@ -326,6 +341,41 @@ def main(epochs=10):
         score = torch.min(distances).data
 
         col = int(score < collision_treshold)
+
+        #like in colision in trajnet_eval
+        ## Collision in Predictions
+        # [Col-I] only if neighs in gt = neighs in prediction
+        num_gt_neigh = scene.shape[1] - 1
+        num_predicted_neigh = model_pred.shape[1] - 1 
+        if num_gt_neigh != num_predicted_neigh:
+            breakpoint() #nerver !
+
+
+
+        #like in evaluator 
+        # primary_tracks_all = [t for t in self.scenes_sub[i][0] if t.scene_id == scene]
+        # neighbours_tracks_all = [[t for t in self.scenes_sub[i][j] if t.scene_id == self.scenes_id_gt[i]] for j in range(1, len(self.scenes_sub[i]))]
+
+
+        col_trajnetpp = 0
+        inter_parts = 2 #num interpolation points
+        only_pred = model_pred[-obs_length:]
+        for j in range(1, only_pred.shape[1]):# all neighbours (0 is main)
+
+            for i in range(only_pred.shape[0] - 1): #num timesteps (11-1)
+                p1 = [only_pred[i,0,0], only_pred[i,0,1]] #main agent, time i
+                p2 = [only_pred[i+1,0,0], only_pred[i+1,0,1]] #main agent, time i + 1
+
+                p3 = [only_pred[i,j,0], only_pred[i,j,1]] #neighbours j, time i
+                p4 = [only_pred[i+1,j,0], only_pred[i+1,j,1]] #neighbours j, time i +1
+                if np.min(np.linalg.norm(getinsidepoints(p1, p2, inter_parts) - getinsidepoints(p3, p4, inter_parts), axis=0)) \
+                <= collision_treshold:
+                    col_trajnetpp = 1
+        
+        if col != col_trajnetpp:
+            #breakpoint() #some diffenrece !!
+            diff_col += 1
+
 
 
         #orig scene treat without nan replacement
@@ -343,7 +393,7 @@ def main(epochs=10):
         fde, ade = calc_fde_ade(model_pred[-pred_length:], scene[-pred_length:])
 
         with open(filename,"a") as f:
-            f.write(str(scene_id) + "\t" + str(col) + "\t" + str(ade) + "\t" + str(fde) + "\n")
+            f.write(str(scene_id) + "\t" + str(col) + "\t" + str(col_trajnetpp) + "\t" + str(ade) + "\t" + str(fde) + "\n")
 
         #breakpoint()
 
@@ -354,6 +404,7 @@ def main(epochs=10):
         #     draw_two_tensor("out/no_noise/first_display", model_pred, scene)
         
     print(tot)
+    print(f"Difference in colision between methods : {diff_col}")
 
 def visualize_scene(scene, goal=None):
     for t in range(scene.shape[1]):
@@ -366,7 +417,21 @@ def visualize_scene(scene, goal=None):
     plt.legend()
     plt.show()
 
+## from trajnet_evaluator l.280
+## drop pedestrians that appear post observation
+# expect other scene representation
+def drop_post_obs(ground_truth, obs_length):
+    obs_end_frame = ground_truth[0][obs_length].frame
+    ground_truth = [track for track in ground_truth if track[0].frame < obs_end_frame]
+    return ground_truth
 
+## from trajnet++ mertrics (site-package)
+# expect other scene representation
+def getinsidepoints(p1, p2, parts=2):
+    """return: equally distanced points between starting and ending "control" points"""
+
+    return np.array((np.linspace(p1[0], p2[0], parts + 1),
+                        np.linspace(p1[1], p2[1], parts + 1)))
 
 
 
