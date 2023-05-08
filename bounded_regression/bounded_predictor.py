@@ -190,7 +190,8 @@ def main(epochs=10):
                  hidden_dim=args.hidden_dim,
                  goal_flag=args.goals,
                  goal_dim=args.goal_dim)
-
+    
+    #for s-lstm
     # model = LSTM(pool=pool,
     #              embedding_dim=320,
     #              hidden_dim=128,
@@ -235,12 +236,14 @@ def main(epochs=10):
 
     #breakpoint()
     #take a slice for test
-    #all_data = all_data[0:2]
+    all_data = all_data[0:2]
     #idx = [246,852]
     #all_data = [all_data[i] for i in idx]
     
-    rs = [0.01, 0.05, 0.1] #[0.001, 0.01, 0.1, 1] 
-    sigmas = [0.05, 0.1, 0.5] #min ~sig = 10*r
+    # rs = [0.01, 0.05, 0.1] 
+    # sigmas = [0.05, 0.1, 0.5] #min ~sig = 10*r
+    rs = [0.01]
+    sigmas = [0.1]
     for r in rs:
         for sigma in sigmas:
             print(f"sigma: {sigma}, r: {r}")

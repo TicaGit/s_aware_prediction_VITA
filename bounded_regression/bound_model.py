@@ -263,6 +263,11 @@ class SmoothBounds():
 
             return mean_pred, low_tot, high_tot
 
+    def eval_g_median(self, observed, goal, batch_split,  num):
+        """
+        returns the median instead of the mean, bounds are the same. 
+        Median calculated with 
+        """
 
 
     def eval_g_wrong_way(self, observed, goal, batch_split,  num):
