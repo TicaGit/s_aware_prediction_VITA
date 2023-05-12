@@ -131,3 +131,5 @@ dmypy.json
 #specific file
 DATA_BLOCK/trajdata/test_private/
 DATA_BLOCK/trajdata/test_private_v2/
+
+diffusion_bound_regression/MID_from_git/process_data/
