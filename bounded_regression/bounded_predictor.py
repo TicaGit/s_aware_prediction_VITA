@@ -224,10 +224,14 @@ def main(epochs=10):
     time_noise_from_end = 3
     pred_length=args.pred_length #12
     collision_treshold = 0.2 #20cm
+
+    #type of function evaluated
+    function = "median1" #amongs: "mean", "median1", "median2", "compare"
+
     smth_bounds_model = SmoothBounds(model, device=args.device, 
                           sample_size = sample_size, time_noise_from_end = time_noise_from_end,
                           pred_length = pred_length, collision_treshold = collision_treshold,
-                          obs_length = args.obs_length)
+                          obs_length = args.obs_length, function = function)
     
     n0 = 100 #for monte carlo 
     
@@ -259,7 +263,10 @@ def main(epochs=10):
             num_draw = 2
             for j, (m_pred, b, r_pred) in enumerate(zip(all_mean_pred, all_bounds, all_real_pred)):
                 if j < num_draw:
-                    filedraw = "out_bounds/bb_sig_" + str(sigma) + "r_" + str(r) + "num_" + str(j) + '.png'        
+                    if function == "mean":
+                        filedraw = "out_bounds/bb_sig_" + str(sigma) + "r_" + str(r) + "num_" + str(j) + '.png'
+                    else:
+                        filedraw = "out_bounds/med_bb_sig_" + str(sigma) + "r_" + str(r) + "num_" + str(j) + '.png'        
                     draw_with_bounds(filedraw, m_pred, b[0], b[1], r_pred)
 
     

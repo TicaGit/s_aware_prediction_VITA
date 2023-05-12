@@ -24,7 +24,8 @@ class SmoothBounds():
                  pred_length = 12,
                  collision_treshold = 0.2,
                  obs_length = 9,
-                 bound_margin = 0.2
+                 bound_margin = 0.2,
+                 function = "mean"
                  ) -> None:
         self.model = model
         self.model.eval()
@@ -36,6 +37,8 @@ class SmoothBounds():
 
         self._obs_length = obs_length
         self.bound_margin = bound_margin
+
+        self.function = function
 
     def preprocess_scenes(self, scenes: list, goals:list, remove_static:bool = False):
         """
@@ -156,7 +159,14 @@ class SmoothBounds():
         computes the bounds according to corolary 2, eq9 in median smothing paper 
         note : this bound are based on the MEAN (not median)
         """
-        mean_pred, low_b, up_b = self.eval_g(observed, goal, batch_split, self.n0)
+        if self.function == "mean":
+            mean_pred, low_b, up_b = self.eval_g(observed, goal, batch_split, self.n0)
+        elif self.function == "median1":
+            mean_pred, low_b, up_b = self.eval_g_median1(observed, goal, batch_split, self.n0)
+        elif self.function == "compare":
+            mean_pred, low_b, up_b = self.eval_g(observed, goal, batch_split, self.n0)
+            med_pred, low_b_m, up_b_m = self.eval_g_median1(observed, goal, batch_split, self.n0)
+            breakpoint()
         
         small_mp = mean_pred[-self.pred_length:]
         small_low_b = low_b[-self.pred_length:]
@@ -263,11 +273,72 @@ class SmoothBounds():
 
             return mean_pred, low_tot, high_tot
 
-    def eval_g_median(self, observed, goal, batch_split,  num):
+    def eval_g_median1(self, observed, goal, batch_split,  num):
         """
-        returns the median instead of the mean, bounds are the same. 
-        Median calculated with 
+        returns the median1 instead of the mean, bounds are the same. 
+        Median of type 1 is the real noisy traj that best represents the median
         """
+        with torch.no_grad():
+            noisy_preds = []
+            low_tot = torch.Tensor([1000,1000])
+            high_tot = torch.Tensor([-1000,-1000])
+            for i in range(num):
+                #compute noisy pred
+                outputs_perturbed, _ = self._sample_noise(observed.detach().clone(), goal, batch_split)
+
+                #append to the list of noisy predictions : keep nans in median
+                noisy_preds.append(outputs_perturbed.clone())
+
+                #replace nans by big value (and small to compute max corectly)
+                outputs_perturbed_neg10000 = outputs_perturbed.clone()
+                pred_nan = torch.isnan(outputs_perturbed)
+                for j in range(len(outputs_perturbed)):
+                    for k in range(len(outputs_perturbed[0])):
+                        if any(pred_nan[j, k].tolist()):
+                            outputs_perturbed.data[j, k] = 10000
+                            outputs_perturbed_neg10000.data[j,k] = -10000
+                            outputs_perturbed[j, k].detach()
+                            outputs_perturbed_neg10000[j, k].detach()
+
+                #compute lowest and highest x and y coord
+                low, _ = outputs_perturbed.view(-1, outputs_perturbed.shape[2]).min(axis=0)
+                high, _ = outputs_perturbed_neg10000.view(-1, outputs_perturbed_neg10000.shape[2]).max(axis=0)
+                low_tot = torch.minimum(low_tot, low)
+                high_tot = torch.maximum(high_tot, high)
+
+            #convert list to tensor 
+            noisy_preds = torch.stack(noisy_preds, dim = 0)
+            
+            #compute the traj that has the smallest distance to all the other -> the median traj
+            smallest_dist = np.inf
+            for i in range(num):
+                dist = torch.sqrt(torch.nansum((torch.square(noisy_preds[:,-self.pred_length:,:,:]
+                            - noisy_preds[i,-self.pred_length:,:,:].repeat( num, 1, 1, 1)))))
+                if dist.item() < smallest_dist:
+                    smallest_dist = dist.item()
+                    idx = i
+
+            #gather the median traj
+            median = noisy_preds[idx]
+
+            #add a margin to bounds
+            diff = high_tot - low_tot
+            low_tot -= diff*self.bound_margin
+            high_tot += diff*self.bound_margin
+
+            low_tot = low_tot.repeat(median.shape[0], median.shape[1], 1)
+            high_tot = high_tot.repeat(median.shape[0], median.shape[1], 1)
+
+            #breakpoint()
+
+            return median, low_tot, high_tot
+
+
+
+
+
+
+
 
 
     def eval_g_wrong_way(self, observed, goal, batch_split,  num):
