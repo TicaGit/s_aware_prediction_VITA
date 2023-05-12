@@ -13,7 +13,7 @@ class AutoEncoder(Module):
         super().__init__()
         self.config = config
         self.encoder = encoder
-        self.diffnet = getattr(diffusion, config.diffnet)
+        self.diffnet = getattr(diffusion, config.diffnet) #TransformerConcatLinear
 
         self.diffusion = DiffusionTraj(
             net = self.diffnet(point_dim=2, context_dim=config.encoder_dim, tf_layer=config.tf_layer, residual=False),

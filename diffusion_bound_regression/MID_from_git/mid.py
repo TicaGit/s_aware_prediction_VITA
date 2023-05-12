@@ -123,7 +123,7 @@ class MID():
         ph = self.hyperparams['prediction_horizon']
         max_hl = self.hyperparams['maximum_history_length']
 
-
+        breakpoint()
         for i, scene in enumerate(self.eval_scenes):
             print(f"----- Evaluating Scene {i + 1}/{len(self.eval_scenes)}")
             for t in tqdm(range(0, scene.timesteps, 10)):
@@ -146,7 +146,7 @@ class MID():
                         predictions_dict[ts] = dict()
                     predictions_dict[ts][nodes[i]] = np.transpose(predictions[:, [i]], (1, 0, 2, 3))
 
-
+                #breakpoint()
 
                 batch_error_dict = evaluation.compute_batch_statistics(predictions_dict,
                                                                        scene.dt,
@@ -299,7 +299,6 @@ class MID():
                                                          shuffle=True,
                                                          num_workers=self.config.preprocess_workers)
             self.train_data_loader[node_type_data_set.node_type] = node_type_dataloader
-        breakpoint()
 
 
     def _build_eval_loader(self):

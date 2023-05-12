@@ -84,6 +84,7 @@ class DiffusionTraj(Module):
         return loss
 
     def sample(self, num_points, context, sample, bestof, point_dim=2, flexibility=0.0, ret_traj=False, sampling="ddpm", step=100):
+        breakpoint()
         traj_list = []
         for i in range(sample):
             batch_size = context.size(0)

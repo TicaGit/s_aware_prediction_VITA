@@ -38,12 +38,12 @@ def main():
     #         keys[k] = v
     #
     # pprint(keys)
-    breakpoint()
+
     sampling = "ddim"
     steps = 5
 
     if config["eval_mode"]:
-        agent.eval(sampling, 100//steps)
+        agent.eval(sampling, 100//steps) # if 100//steps  = 100 -> do only one diffusion step
     else:
         agent.train()
 
@@ -53,3 +53,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+    #call : python main.py --config configs/my_config.yaml --dataset eth/       #training
+    #       python main.py --config configs/my_config_eval.yaml --dataset eth/  #pred
