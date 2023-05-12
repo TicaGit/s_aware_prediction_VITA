@@ -132,8 +132,4 @@ dmypy.json
 DATA_BLOCK/trajdata/test_private/
 DATA_BLOCK/trajdata/test_private_v2/
 
-<<<<<<< HEAD
 diffusion_bound_regression/MID_from_git/processed_data/
-=======
-diffusion_bound_regression/MID_from_git/process_data/
->>>>>>> try_diffusion
