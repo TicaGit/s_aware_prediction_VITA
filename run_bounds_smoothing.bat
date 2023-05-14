@@ -14,4 +14,5 @@ py -m bounded_regression.bounded_predictor ^
 --sample_size 9999 ^
 --enable_thread false ^
 --output out/tmp/ ^
---models_path trajnetbaselines/lstm/Target-Model/d_pool.state
+--models_path trajnetbaselines/lstm/Target-Model/d_pool.state ^
+--function median1

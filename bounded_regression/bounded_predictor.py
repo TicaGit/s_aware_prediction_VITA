@@ -138,6 +138,10 @@ def parse_args():
                                  help='prediction length')
     hyperparameters.add_argument('--obs_dropout', action='store_true',
                                  help='obs length dropout')
+    ###thibaud###
+    parser.add_argument('--function', default='mean',
+                        choices=('mean', 'median1', 'median2'),
+                        help='type of evaluation of the expectation')
     args = parser.parse_args()
     return args
 
@@ -226,7 +230,9 @@ def main(epochs=10):
     collision_treshold = 0.2 #20cm
 
     #type of function evaluated
-    function = "median1" #amongs: "mean", "median1", "median2", "compare"
+    #function = "median1" #amongs: "mean", "median1", "median2", "compare"
+    function = args.function
+    print("with:" , args.function)
 
     smth_bounds_model = SmoothBounds(model, device=args.device, 
                           sample_size = sample_size, time_noise_from_end = time_noise_from_end,
@@ -240,19 +246,19 @@ def main(epochs=10):
 
     #breakpoint()
     #take a slice for test
-    all_data = all_data[0:2]
+    #all_data = all_data[0:2]
     #idx = [246,852]
     #all_data = [all_data[i] for i in idx]
     
-    # rs = [0.01, 0.05, 0.1] 
-    # sigmas = [0.05, 0.1, 0.5] #min ~sig = 10*r
-    rs = [0.01]
-    sigmas = [0.1]
+    rs = [0.01, 0.05, 0.1] 
+    sigmas = [0.05, 0.1, 0.5] #min ~sig = 10*r
+    # rs = [0.01]
+    # sigmas = [0.1]
     for r in rs:
         for sigma in sigmas:
             print(f"sigma: {sigma}, r: {r}")
             #predict bounds
-            filename = "out_bounds/on_sbatch_dpool/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
+            filename = "out_bounds/on_sbatch_d_pool_med1/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
             #filename = "out_bounds/on_sbatch_satt/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
             all_mean_pred, all_bounds, all_real_pred = smth_bounds_model.compute_bounds_all(
                 all_data, filename, sigma, n0, r
@@ -260,7 +266,7 @@ def main(epochs=10):
 
             #breakpoint()
             
-            num_draw = 2
+            num_draw = 0
             for j, (m_pred, b, r_pred) in enumerate(zip(all_mean_pred, all_bounds, all_real_pred)):
                 if j < num_draw:
                     if function == "mean":
