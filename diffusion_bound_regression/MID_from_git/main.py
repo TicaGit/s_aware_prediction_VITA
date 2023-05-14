@@ -55,4 +55,5 @@ if __name__ == '__main__':
     main()
 
     #call : python main.py --config configs/my_config.yaml --dataset eth/       #training
+        #then moove model in eval and change path in eval_config
     #       python main.py --config configs/my_config_eval.yaml --dataset eth/  #pred

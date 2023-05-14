@@ -123,7 +123,6 @@ class MID():
         ph = self.hyperparams['prediction_horizon']
         max_hl = self.hyperparams['maximum_history_length']
 
-        breakpoint()
         for i, scene in enumerate(self.eval_scenes):
             print(f"----- Evaluating Scene {i + 1}/{len(self.eval_scenes)}")
             for t in tqdm(range(0, scene.timesteps, 10)):
