@@ -163,9 +163,12 @@ class SmoothBounds():
             mean_pred, low_b, up_b = self.eval_g(observed, goal, batch_split, self.n0)
         elif self.function == "median1":
             mean_pred, low_b, up_b = self.eval_g_median1(observed, goal, batch_split, self.n0)
+        elif self.function == "median2":
+            mean_pred, low_b, up_b = self.eval_g_median2(observed, goal, batch_split, self.n0)
         elif self.function == "compare":
             mean_pred, low_b, up_b = self.eval_g(observed, goal, batch_split, self.n0)
-            med_pred, low_b_m, up_b_m = self.eval_g_median1(observed, goal, batch_split, self.n0)
+            med1_pred, low_b_m, up_b_m = self.eval_g_median1(observed, goal, batch_split, self.n0)
+            med2_pred, low_b_m1, up_b_m2 = self.eval_g_median2(observed, goal, batch_split, self.n0)
             breakpoint()
         
         small_mp = mean_pred[-self.pred_length:]
@@ -334,7 +337,54 @@ class SmoothBounds():
             return median, low_tot, high_tot
 
 
+    def eval_g_median2(self, observed, goal, batch_split,  num):
+        """
+        returns the median2 instead of the mean, bounds are the same. 
+        Median of type 2 is the artififial traj that has the midian of all coordinates.
+        """
+        with torch.no_grad():
+            noisy_preds = []
+            low_tot = torch.Tensor([1000,1000])
+            high_tot = torch.Tensor([-1000,-1000])
+            for i in range(num):
+                #compute noisy pred
+                outputs_perturbed, _ = self._sample_noise(observed.detach().clone(), goal, batch_split)
 
+                #append to the list of noisy predictions : keep nans in median
+                noisy_preds.append(outputs_perturbed.clone())
+
+                #replace nans by big value (and small to compute max corectly)
+                outputs_perturbed_neg10000 = outputs_perturbed.clone()
+                pred_nan = torch.isnan(outputs_perturbed)
+                for j in range(len(outputs_perturbed)):
+                    for k in range(len(outputs_perturbed[0])):
+                        if any(pred_nan[j, k].tolist()):
+                            outputs_perturbed.data[j, k] = 10000
+                            outputs_perturbed_neg10000.data[j,k] = -10000
+                            outputs_perturbed[j, k].detach()
+                            outputs_perturbed_neg10000[j, k].detach()
+
+                #compute lowest and highest x and y coord
+                low, _ = outputs_perturbed.view(-1, outputs_perturbed.shape[2]).min(axis=0)
+                high, _ = outputs_perturbed_neg10000.view(-1, outputs_perturbed_neg10000.shape[2]).max(axis=0)
+                low_tot = torch.minimum(low_tot, low)
+                high_tot = torch.maximum(high_tot, high)
+
+            #convert list to tensor 
+            noisy_preds = torch.stack(noisy_preds, dim = 0) #100xTxNagentx2
+
+            #gather the median traj
+            median, _ = noisy_preds.nanmedian(dim=0) #squash the "sample" axis
+
+            #add a margin to bounds
+            diff = high_tot - low_tot
+            low_tot -= diff*self.bound_margin
+            high_tot += diff*self.bound_margin
+
+            low_tot = low_tot.repeat(median.shape[0], median.shape[1], 1)
+            high_tot = high_tot.repeat(median.shape[0], median.shape[1], 1)
+
+            return median, low_tot, high_tot
 
 
 

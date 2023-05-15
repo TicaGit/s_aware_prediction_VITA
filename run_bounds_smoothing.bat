@@ -15,4 +15,4 @@ py -m bounded_regression.bounded_predictor ^
 --enable_thread false ^
 --output out/tmp/ ^
 --models_path trajnetbaselines/lstm/Target-Model/d_pool.state ^
---function median1
+--function median2

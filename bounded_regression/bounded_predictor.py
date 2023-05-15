@@ -232,6 +232,7 @@ def main(epochs=10):
     #type of function evaluated
     #function = "median1" #amongs: "mean", "median1", "median2", "compare"
     function = args.function
+    #function = "compare"
     print("with:" , args.function)
 
     smth_bounds_model = SmoothBounds(model, device=args.device, 
@@ -246,19 +247,20 @@ def main(epochs=10):
 
     #breakpoint()
     #take a slice for test
-    #all_data = all_data[0:2]
+    all_data = all_data[0:2]
+    #all_data = all_data[200:201] #many agent interactions
     #idx = [246,852]
     #all_data = [all_data[i] for i in idx]
     
-    rs = [0.01, 0.05, 0.1] 
-    sigmas = [0.05, 0.1, 0.5] #min ~sig = 10*r
-    # rs = [0.01]
-    # sigmas = [0.1]
+    # rs = [0.01, 0.05, 0.1] 
+    # sigmas = [0.05, 0.1, 0.5] #min ~sig = 10*r
+    rs = [0.01]
+    sigmas = [0.1]
     for r in rs:
         for sigma in sigmas:
             print(f"sigma: {sigma}, r: {r}")
             #predict bounds
-            filename = "out_bounds/on_sbatch_d_pool_med1/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
+            filename = "out_bounds/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
             #filename = "out_bounds/on_sbatch_satt/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
             all_mean_pred, all_bounds, all_real_pred = smth_bounds_model.compute_bounds_all(
                 all_data, filename, sigma, n0, r
@@ -266,13 +268,15 @@ def main(epochs=10):
 
             #breakpoint()
             
-            num_draw = 0
+            num_draw = 2
             for j, (m_pred, b, r_pred) in enumerate(zip(all_mean_pred, all_bounds, all_real_pred)):
                 if j < num_draw:
                     if function == "mean":
-                        filedraw = "out_bounds/bb_sig_" + str(sigma) + "r_" + str(r) + "num_" + str(j) + '.png'
-                    else:
-                        filedraw = "out_bounds/med_bb_sig_" + str(sigma) + "r_" + str(r) + "num_" + str(j) + '.png'        
+                        filedraw = "out_bounds/bb_sig_" + str(sigma) + "r_" + str(r) + "sc_" + str(all_data[j][0]) + "num_" + str(j) + '.png'
+                    elif function == "median1": 
+                        filedraw = "out_bounds/med_bb_sig_" + str(sigma) + "r_" + str(r) + "sc_" + str(all_data[j][0]) + "num_" + str(j) + '.png'
+                    elif function == "median2": 
+                        filedraw = "out_bounds/med2_bb_sig_" + str(sigma) + "r_" + str(r) + "sc_" + str(all_data[j][0]) + "num_" + str(j) + '.png'      
                     draw_with_bounds(filedraw, m_pred, b[0], b[1], r_pred)
 
     
