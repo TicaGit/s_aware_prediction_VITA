@@ -332,6 +332,7 @@ class Trajectron(object):
          neighbors_edge_value,
          robot_traj_st_t,
          map) = batch
+        #breakpoint()
 
         x = x_t.to(self.device)
         y = y_t.to(self.device)

@@ -92,6 +92,8 @@ def get_node_timestep_data(env, scene, t, node, state, pred_state,
     y = node.get(timestep_range_y, pred_state[node.type])
     first_history_index = (max_ht - node.history_points_at(t)).clip(0)
 
+    #breakpoint()
+
     _, std = env.get_standardize_params(state[node.type], node.type)
     std[0:2] = env.attention_radius[(node.type, node.type)]
     rel_state = np.zeros_like(x[0])
@@ -208,11 +210,13 @@ def get_timesteps_data(env, scene, t, node_type, state, pred_state,
     :param hyperparams: Model hyperparameters
     :return:
     """
+    #breakpoint()
     nodes_per_ts = scene.present_nodes(t,
                                        type=node_type,
                                        min_history_timesteps=min_ht,
                                        min_future_timesteps=max_ft,
                                        return_robot=not hyperparams['incl_robot_node'])
+
     batch = list()
     nodes = list()
     out_timesteps = list()

@@ -29,6 +29,8 @@ class VarianceSchedule(Module):
             betas = betas.clamp(max=0.999)
 
         betas = torch.cat([torch.zeros([1]), betas], dim=0)     # Padding
+        #breakpoint()
+        #verfi betas    
 
         alphas = 1 - betas
         log_alphas = torch.log(alphas)
@@ -94,6 +96,7 @@ class DiffusionTraj(Module):
             traj = {self.var_sched.num_steps: x_T}
             stride = step
             #stride = int(100/stride)
+            #breakpoint()
             for t in range(self.var_sched.num_steps, 0, -stride):
                 z = torch.randn_like(x_T) if t > 1 else torch.zeros_like(x_T)
                 alpha = self.var_sched.alphas[t]
@@ -106,6 +109,7 @@ class DiffusionTraj(Module):
                 c1 = (1 - alpha) / torch.sqrt(1 - alpha_bar)
 
                 x_t = traj[t]
+
                 beta = self.var_sched.betas[[t]*batch_size]
                 e_theta = self.net(x_t, beta=beta, context=context)
                 if sampling == "ddpm":
