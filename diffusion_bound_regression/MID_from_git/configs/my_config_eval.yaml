@@ -15,7 +15,7 @@ k_eval: 25
 seed: 123
 eval_every: 3 #30
 # Testing
-eval_at: 3                            ####
+eval_at: 60                            ####best epochs
 eval_mode: True                       ####
 # set to "ddim" to enable fast sampling
 sampling: ddpm
