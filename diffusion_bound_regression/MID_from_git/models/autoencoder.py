@@ -9,7 +9,7 @@ import pdb
 
 class AutoEncoder(Module):
 
-    def __init__(self, config, encoder):
+    def __init__(self, config, encoder, beta_T=5e-2):
         super().__init__()
         self.config = config
         self.encoder = encoder
@@ -19,7 +19,7 @@ class AutoEncoder(Module):
             net = self.diffnet(point_dim=2, context_dim=config.encoder_dim, tf_layer=config.tf_layer, residual=False),
             var_sched = VarianceSchedule(
                 num_steps=100,
-                beta_T=5e-2,
+                beta_T=beta_T,
                 mode='linear'
 
             )
