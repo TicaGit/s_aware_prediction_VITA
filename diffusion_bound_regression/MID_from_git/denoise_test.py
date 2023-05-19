@@ -128,18 +128,26 @@ class DataPreproc():
 
         self.node_type = node_type
 
-        #standardization true or false ??
-
         self.env = Environment(node_type_list=['PEDESTRIAN'], standardization=standardization)
         attention_radius = dict()
-        attention_radius[(self.env.NodeType.PEDESTRIAN, self.env.NodeType.PEDESTRIAN)] = 3.0
+        attention_radius[(self.env.NodeType.PEDESTRIAN, self.env.NodeType.PEDESTRIAN)] = 3.0        ##???
         self.env.attention_radius = attention_radius
 
         self.data_columns = pd.MultiIndex.from_product([['position', 'velocity', 'acceleration'], ['x', 'y']])
 
     def preproc_scene(self, scene_tensor:torch.Tensor):
         """
-        scene : T x N_ag x 2 = 21 x Nag x 2
+        params:
+        -------
+
+        scene : our format : T x N_ag x 2 = 21 x Nag x 2
+
+        returns:
+        --------
+
+        batch : sea
+        nodes : 
+        timestep : 
         """
         obs_sc = scene_tensor.clone().numpy() #scene_tensor[:self.t_obs].numpy()
 
@@ -198,7 +206,7 @@ class DataPreproc():
 #     env.attention_radius = attention_radius
 
 class DiffDenoiser():
-    def __init__(self, config, model_path, dt=0.4, node_type = "PEDESTRIAN", device = torch.device("cuda")):
+    def __init__(self, config, model_path, dt=0.4, node_type = "PEDESTRIAN", device = torch.device("cuda"), beta_T):
         self.device = device
         self.config = config
 
@@ -229,7 +237,7 @@ class DiffDenoiser():
         self.encoder.set_annealing_params()
 
         config = self.config
-        model = AutoEncoder(config, encoder = self.encoder)
+        model = AutoEncoder(config, encoder = self.encoder, beta_T=beta_T)
 
         self.model = model.to(self.device)
         self.model.load_state_dict(checkpoint['ddpm']) #don't change to ddim (?)
@@ -240,32 +248,67 @@ class DiffDenoiser():
         context = self.model.encoder.get_latent(batch, self.node_type)
         return context
 
-    def noise(self, pred:torch.Tensor, sigma):
+    def noise_with_diff(self, obs:torch.Tensor, sigma):
         """
         add a diffusion noise coresponding to sigma
 
         params:
         -------
-        pred 
+        obs : tensor
         sigma : noise level to add
 
         returns:
         -------
-        noisy_pred : 
+        noisy_obs : 
         t_noise (int): the coresponding timestep (0-100)
         """
+        t_noise = self.get_t(sigma)
+        breakpoint()
+        alpha_t = self.model.diffusion.var_sched.alphas[t_noise]
+
+        noisy_obs = obs*alpha_t.sqrt() + (1 - alpha_t).sqrt()*torch.randn_like(obs)
+
+        return noisy_obs, t_noise
+
+    def get_t(self, sigma):
+        """
+        return the timestep to the coresponding sigma, w.r.t a linear scheduler
+        """
+        beta1 = self.model.diffusion.var_sched.beta_1
+        betaT = self.model.diffusion.var_sched.beta_T
+        num_step = self.model.diffusion.var_sched.num_steps
 
 
+        term = 1/(1+sigma**2)
+        return round((1-beta1-term)/(betaT-beta1)*num_step)
+
+
+    def denoise_trough_pos_one_shot(self, t_noise, noisy_obs:torch.Tensor, context, Tpred = 12):
+        """
+        not finished !!!
+        params:
+        -------
+
+        t_noise(int): timestep at which the noise (sigma) coresponds
+        noisy_obs(torch.Tensor) :  must be in our format : Tpred x N_ag x 2 : IS THEPOSITION 
+        context : encoding of the scene
+
+        """
 
         var_sched = self.model.diffusion.var_sched #scheduler of Trajectron of autoencoder
+        decoder_trans = self.model.diffusion.net #type TransformerConcatLinear
 
-    def denoise(self, t_noise, noisy_pred:torch.Tensor, context, Tpred = 12, stride=None):
+        batch_size = context.size(0)
+
+        noisy_obs = noisy_obs.permute((1,0,2)) # now N_ag x Tpred x 2
+
+    def denoise_trough_vel(self, t_noise, noisy_obs:torch.Tensor, context, Tobs = 9, stride=None):
         """
         params:
         -------
 
         t_noise(int): timestep at which the noise (sigma) coresponds
-        noisy_pred(torch.Tensor) :  must be in our format : Tpred x N_ag x 2 : IS THEPOSITION 
+        noisy_obs(torch.Tensor) :  must be in our format : Tpred x N_ag x 2 : IS THEPOSITION 
         context : encoding of the scene
 
         """
@@ -279,9 +322,9 @@ class DiffDenoiser():
 
         batch_size = context.size(0)
 
-        noisy_pred = noisy_pred.permute((1,0,2)) # now N_ag x Tpred x 2
+        noisy_pred = noisy_obs.permute((1,0,2)) # now N_ag x Tpred x 2
 
-        v_t = self.get_velocity(noisy_pred).to(self.device) #x_T is veolity space
+        v_t = self.get_velocity(noisy_obs).to(self.device) #x_T is veolity space
         breakpoint()
         #verif
 
@@ -313,11 +356,11 @@ class DiffDenoiser():
         breakpoint()
 
         dynamics = self.model.encoder.node_models_dict[self.node_type].dynamic
-        pred_denoised = dynamics.integrate_samples(v_t)
+        noisy_obs = dynamics.integrate_samples(v_t)
 
-        pred_denoised = pred_denoised.permute((1,0,2)) # now Tpred x N_ag x 2
+        obs_denoised = noisy_obs.permute((1,0,2)) # now Tpred x N_ag x 2
 
-        return pred_denoised
+        return noisy_obs
 
 
     def get_velocity(self, pos:torch.Tensor):
@@ -344,8 +387,10 @@ class DiffDenoiser():
 def main():
 
     node_type = "PEDESTRIAN"
-    dt = 0.4
+    dt = 0.4                        ##???
     t_pred = 12
+    t_obs = 9
+    beta_T = 0.05          #orig, trained with            ##final variance ? 
 
     data_prec = DataPreproc(node_type = node_type, dt = dt, t_pred = t_pred)
     scene_test = torch.rand((21,4,2))
@@ -357,24 +402,21 @@ def main():
     with open(config_path) as f:
        config = yaml.safe_load(f)
     config = EasyDict(config)
-    dd = DiffDenoiser(config = config, model_path = model_path, dt = dt, node_type = node_type)
+    dd = DiffDenoiser(config = config, model_path = model_path, dt = dt, node_type = node_type, beta_T=beta_T)
 
     ##
     context = dd.get_context(batch) #Nag x 256
 
-
-    pred = scene_test[-t_pred:,:,:].clone() #now 12xnagx2
-
-
-    #now can use : 
-    #dd.model.generate(test_batch, node_type, num_points=12, sample=20,bestof=True, sampling=sampling, step=step)
+    #WE NOISE ON OBS, NOT PRED
+    #pred = scene_test[-t_pred:,:,:].clone() #now 12xnagx2
+    obs = scene_test[:t_obs,:,:].clone() 
 
     sigma = 0.1
     breakpoint()
-    #noisy_pred, t_noise = dd.noise(pred, sigma)
-    noisy_pred = pred
-    t_noise = 47
-    denoised_pred = dd.denoise(t_noise, noisy_pred, context, t_pred)
+    noisy_obs, t_noise = dd.noise_with_diff(obs, sigma)
+    #noisy_obs = obs
+    #t_noise = 47
+    denoised_pred = dd.denoise_trough_vel(t_noise, noisy_obs, context)
     breakpoint()
     pass
     
