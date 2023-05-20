@@ -247,20 +247,20 @@ def main(epochs=10):
 
     #breakpoint()
     #take a slice for test
-    all_data = all_data[0:2]
+    #all_data = all_data[0:2]
     #all_data = all_data[200:201] #many agent interactions
     #idx = [246,852]
     #all_data = [all_data[i] for i in idx]
     
-    # rs = [0.01, 0.05, 0.1] 
-    # sigmas = [0.05, 0.1, 0.5] #min ~sig = 10*r
-    rs = [0.01]
-    sigmas = [0.1]
+    rs = [0.01, 0.05, 0.1] 
+    sigmas = [0.05, 0.1, 0.5] #min ~sig = 10*r
+    #rs = [0.01]
+    #sigmas = [0.1]
     for r in rs:
         for sigma in sigmas:
             print(f"sigma: {sigma}, r: {r}")
             #predict bounds
-            filename = "out_bounds/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
+            filename = "out_bounds/on_sbatch_dpool_med2/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
             #filename = "out_bounds/on_sbatch_satt/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
             all_mean_pred, all_bounds, all_real_pred = smth_bounds_model.compute_bounds_all(
                 all_data, filename, sigma, n0, r
@@ -268,7 +268,7 @@ def main(epochs=10):
 
             #breakpoint()
             
-            num_draw = 2
+            num_draw = 0
             for j, (m_pred, b, r_pred) in enumerate(zip(all_mean_pred, all_bounds, all_real_pred)):
                 if j < num_draw:
                     if function == "mean":

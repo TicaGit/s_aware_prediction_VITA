@@ -199,7 +199,7 @@ class SmoothBounds():
         """
         # smallest_pred = [None, None]
         # smallest_l2_norm = np.ones(self.num_classes) * np.inf
-
+        
         with torch.no_grad():
             #necessary to put first iter here 
             outputs_perturbed, noise = self._sample_noise(observed.detach().clone(), goal, batch_split)
@@ -343,6 +343,7 @@ class SmoothBounds():
         Median of type 2 is the artififial traj that has the midian of all coordinates.
         """
         with torch.no_grad():
+            breakpoint()
             noisy_preds = []
             low_tot = torch.Tensor([1000,1000])
             high_tot = torch.Tensor([-1000,-1000])
