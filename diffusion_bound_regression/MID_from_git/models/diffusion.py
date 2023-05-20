@@ -61,10 +61,11 @@ class VarianceSchedule(Module):
 
 class DiffusionTraj(Module):
 
-    def __init__(self, net, var_sched:VarianceSchedule):
+    def __init__(self, net, var_sched:VarianceSchedule, device = torch.device("cuda")):
         super().__init__()
         self.net = net
         self.var_sched = var_sched
+        self.device = device
 
     def get_loss(self, x_0, context, t=None):
 
@@ -73,12 +74,12 @@ class DiffusionTraj(Module):
             t = self.var_sched.uniform_sample_t(batch_size)
 
         alpha_bar = self.var_sched.alpha_bars[t]
-        beta = self.var_sched.betas[t].cuda()
+        beta = self.var_sched.betas[t].to(self.device)
 
-        c0 = torch.sqrt(alpha_bar).view(-1, 1, 1).cuda()       # (B, 1, 1)
-        c1 = torch.sqrt(1 - alpha_bar).view(-1, 1, 1).cuda()   # (B, 1, 1)
+        c0 = torch.sqrt(alpha_bar).view(-1, 1, 1).to(self.device)      # (B, 1, 1)
+        c1 = torch.sqrt(1 - alpha_bar).view(-1, 1, 1).to(self.device)    # (B, 1, 1)
 
-        e_rand = torch.randn_like(x_0).cuda()  # (B, N, d)
+        e_rand = torch.randn_like(x_0).to(self.device)  # (B, N, d)
 
 
         e_theta = self.net(c0 * x_0 + c1 * e_rand, beta=beta, context=context)

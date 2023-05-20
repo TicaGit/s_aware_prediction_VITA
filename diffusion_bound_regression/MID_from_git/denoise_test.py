@@ -12,6 +12,89 @@ from models.trajectron import Trajectron
 from models.autoencoder import AutoEncoder
 from dataset import EnvironmentDataset, collate, get_timesteps_data
 
+OBS_TENSOR = torch.Tensor([[[7.0400, 2.2700],
+         [7.4500, 1.6900]],
+
+        [[6.3600, 2.3400],
+         [6.7600, 1.6500]],
+
+        [[5.6500, 2.4500],
+         [6.0700, 1.7200]],
+
+        [[4.9300, 2.5900],
+         [5.3700, 1.8700]],
+
+        [[4.2300, 2.7600],
+         [4.6600, 2.0700]],
+
+        [[3.5400, 2.9700],
+         [3.9400, 2.2700]],
+
+        [[2.8800, 3.2000],
+         [3.2100, 2.4500]],
+
+        [[2.2500, 3.4400],
+         [2.4900, 2.6200]],
+
+        [[1.6300, 3.6700],
+         [1.8000, 2.7800]]])
+
+RAW_PRED_SLSTM = torch.Tensor([[[ 5.8722,  2.4143],
+         [ 6.2698,  1.6188]],
+
+        [[ 4.9980,  2.5349],
+         [ 5.4165,  1.7782]],
+
+        [[ 4.2281,  2.7107],
+         [ 4.6747,  2.0157]],
+
+        [[ 3.5503,  2.9122],
+         [ 3.9837,  2.2635]],
+
+        [[ 2.8863,  3.1750],
+         [ 3.2749,  2.4484]],
+
+        [[ 2.2521,  3.4191],
+         [ 2.5389,  2.5840]],
+
+        [[ 1.6505,  3.6554],
+         [ 1.8144,  2.7530]],
+
+        [[ 1.0350,  3.8694],
+         [ 1.1391,  2.9163]],
+
+        [[ 0.4285,  4.0292],
+         [ 0.5048,  3.0762]],
+
+        [[-0.1740,  4.1786],
+         [-0.1114,  3.2248]],
+
+        [[-0.7711,  4.3119],
+         [-0.7303,  3.3671]],
+
+        [[-1.3690,  4.4412],
+         [-1.3412,  3.4983]],
+
+        [[-1.9630,  4.5590],
+         [-1.9505,  3.6274]],
+
+        [[-2.5543,  4.6769],
+         [-2.5535,  3.7468]],
+
+        [[-3.1422,  4.7844],
+         [-3.1531,  3.8649]],
+
+        [[-3.7260,  4.8924],
+         [-3.7472,  3.9741]],
+
+        [[-4.3063,  4.9911],
+         [-4.3371,  4.0817]],
+
+        [[-4.8820,  5.0893],
+         [-4.9221,  4.1812]],
+
+        [[-5.4542,  5.1795],
+         [-5.5027,  4.2783]]])
 
 standardization = {
     'PEDESTRIAN': {
@@ -206,7 +289,7 @@ class DataPreproc():
 #     env.attention_radius = attention_radius
 
 class DiffDenoiser():
-    def __init__(self, config, model_path, dt=0.4, node_type = "PEDESTRIAN", device = torch.device("cuda"), beta_T):
+    def __init__(self, config, model_path, dt=0.4, node_type = "PEDESTRIAN", device = torch.device("cuda"), beta_T = 0.05):
         self.device = device
         self.config = config
 
@@ -264,7 +347,7 @@ class DiffDenoiser():
         """
         t_noise = self.get_t(sigma)
         breakpoint()
-        alpha_t = self.model.diffusion.var_sched.alphas[t_noise]
+        alpha_t = self.model.diffusion.var_sched.alphas[t_noise].to("cpu")
 
         noisy_obs = obs*alpha_t.sqrt() + (1 - alpha_t).sqrt()*torch.randn_like(obs)
 
@@ -322,7 +405,7 @@ class DiffDenoiser():
 
         batch_size = context.size(0)
 
-        noisy_pred = noisy_obs.permute((1,0,2)) # now N_ag x Tpred x 2
+        noisy_obs = noisy_obs.permute((1,0,2)) # now N_ag x Tpred x 2
 
         v_t = self.get_velocity(noisy_obs).to(self.device) #x_T is veolity space
         breakpoint()
@@ -356,11 +439,11 @@ class DiffDenoiser():
         breakpoint()
 
         dynamics = self.model.encoder.node_models_dict[self.node_type].dynamic
-        noisy_obs = dynamics.integrate_samples(v_t)
+        obs_denoised = dynamics.integrate_samples(v_t)
 
-        obs_denoised = noisy_obs.permute((1,0,2)) # now Tpred x N_ag x 2
+        obs_denoised = obs_denoised.permute((1,0,2)) # now Tpred x N_ag x 2
 
-        return noisy_obs
+        return obs_denoised
 
 
     def get_velocity(self, pos:torch.Tensor):
@@ -393,7 +476,10 @@ def main():
     beta_T = 0.05          #orig, trained with            ##final variance ? 
 
     data_prec = DataPreproc(node_type = node_type, dt = dt, t_pred = t_pred)
-    scene_test = torch.rand((21,4,2))
+    #scene_test = torch.rand((21,4,2))
+    scene_test = torch.cat((OBS_TENSOR[:t_obs,:,:], RAW_PRED_SLSTM[-t_pred:,:,]), dim = 0)
+    breakpoint()
+
     batch, nodes, timesteps_o = data_prec.preproc_scene(scene_test)
 
     #only at begining

@@ -9,11 +9,13 @@ import pdb
 
 class AutoEncoder(Module):
 
-    def __init__(self, config, encoder, beta_T=5e-2):
+    def __init__(self, config, encoder, device = torch.device("cuda"), beta_T=5e-2):
         super().__init__()
         self.config = config
         self.encoder = encoder
         self.diffnet = getattr(diffusion, config.diffnet) #TransformerConcatLinear
+
+        self.device = device
 
         self.diffusion = DiffusionTraj(
             net = self.diffnet(point_dim=2, context_dim=config.encoder_dim, tf_layer=config.tf_layer, residual=False),
@@ -21,8 +23,8 @@ class AutoEncoder(Module):
                 num_steps=100,
                 beta_T=beta_T,
                 mode='linear'
-
-            )
+            ),
+            device = self.device,
         )
 
     def encode(self, batch,node_type):
@@ -47,5 +49,5 @@ class AutoEncoder(Module):
          map) = batch
 
         feat_x_encoded = self.encode(batch,node_type) # B * 64
-        loss = self.diffusion.get_loss(y_t.cuda(), feat_x_encoded)
+        loss = self.diffusion.get_loss(y_t.to(self.device), feat_x_encoded)
         return loss
