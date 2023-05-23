@@ -277,6 +277,64 @@ class DataPreproc():
         return batch[0], batch[1], batch[2]
 
 
+    def preproc_scene_only_obs(self, scene_tensor:torch.Tensor):
+            """
+            params:
+            -------
+
+            scene : our format : Tobs x N_ag x 2 = 9 x Nag x 2   #only obs
+
+            returns:
+            --------
+
+            batch : sea
+            nodes : 
+            timestep : 
+            """
+            obs_sc = scene_tensor.clone().numpy() #scene_tensor[:self.t_obs].numpy()
+
+            t_tot = scene_tensor.shape[0]
+            n_agents = scene_tensor.shape[1]
+
+            scene = Scene(timesteps=self.t_obs+1, dt=self.dt, name="scene_custom", aug_func=None)
+
+            for i_ag in range(n_agents):
+                node = obs_sc[:,i_ag,:] #node == agent, now is Tx2
+
+                new_first_idx = 0 #int(~node.isnan()).nonzero() #node_df['frame_id'].iloc[0] ##stil TODO ? all 0?, relative ? 
+
+                x = node[:, 0]
+                y = node[:, 1]
+                vx = derivative_of(x, self.dt)
+                vy = derivative_of(y, self.dt)
+                ax = derivative_of(vx, self.dt)
+                ay = derivative_of(vy, self.dt)
+
+                data_dict = {('position', 'x'): x,
+                            ('position', 'y'): y,
+                            ('velocity', 'x'): vx,
+                            ('velocity', 'y'): vy,
+                            ('acceleration', 'x'): ax,
+                            ('acceleration', 'y'): ay}
+            
+                node_data = pd.DataFrame(data_dict, columns=self.data_columns)
+                node = Node(node_type=self.env.NodeType.PEDESTRIAN, node_id=str(i_ag), data=node_data)
+                node.first_timestep = new_first_idx
+
+                scene.nodes.append(node)
+
+            self.env.scenes = [scene] #scenes is a list of 1 scene
+
+            #breakpoint()
+            timesteps = np.arange(0,self.t_obs)
+            ht = 1-1 #only first data is know, rest is to pred
+            ft = 8
+            batch = get_timesteps_data(env=self.env, scene=scene, t=timesteps, node_type=self.node_type, state=HYPERS['state'],
+                    pred_state=HYPERS['pred_state'], edge_types=self.env.get_edge_types(),
+                    min_ht=ht, max_ht=ht, min_ft=ft, max_ft=ft, hyperparams=HYPERS)
+            #breakpoint()
+            return batch[0], batch[1], batch[2]
+
 # def get_scenes(data:list(torch.Tensor)) -> list(Scene):
 #     """
 #     return format is then used like in orig file.
@@ -473,14 +531,15 @@ def main():
     dt = 0.4                        ##???
     t_pred = 12
     t_obs = 9
-    beta_T = 0.05          #orig, trained with            ##final variance ? 
+    beta_T = 0.05          #orig, trained with 0.05          ##final variance ? 
 
     data_prec = DataPreproc(node_type = node_type, dt = dt, t_pred = t_pred)
     #scene_test = torch.rand((21,4,2))
     scene_test = torch.cat((OBS_TENSOR[:t_obs,:,:], RAW_PRED_SLSTM[-t_pred:,:,]), dim = 0)
     breakpoint()
 
-    batch, nodes, timesteps_o = data_prec.preproc_scene(scene_test)
+    #batch, nodes, timesteps_o = data_prec.preproc_scene(scene_test) #whole scene
+    batch, nodes, timesteps_o = data_prec.preproc_scene_only_obs(OBS_TENSOR) #konw obs is futur
 
     #only at begining
     model_path = "experiments/my_config_eval/eth_epoch60.pt"
