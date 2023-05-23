@@ -343,7 +343,6 @@ class SmoothBounds():
         Median of type 2 is the artififial traj that has the midian of all coordinates.
         """
         with torch.no_grad():
-            breakpoint()
             noisy_preds = []
             low_tot = torch.Tensor([1000,1000])
             high_tot = torch.Tensor([-1000,-1000])
