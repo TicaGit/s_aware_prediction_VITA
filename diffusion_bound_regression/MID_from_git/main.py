@@ -39,8 +39,14 @@ def main():
     #
     # pprint(keys)
 
+    #orig
     sampling = "ddim"
     steps = 5
+
+    #other
+    # sampling = "ddpm"
+    # steps = 100
+
 
     if config["eval_mode"]:
         agent.eval(sampling, 100//steps) # if 100//steps  = 100 -> do only one diffusion step

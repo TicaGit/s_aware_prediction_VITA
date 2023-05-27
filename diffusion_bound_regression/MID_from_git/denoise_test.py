@@ -5,12 +5,17 @@ import yaml
 from easydict import EasyDict
 import dill
 
+import matplotlib.pyplot as plt
+import time
+
 from environment import Environment, Scene, Node, derivative_of
+
+from models.encoders.dynamics.single_integrator import SingleIntegrator
 
 from utils.model_registrar import ModelRegistrar
 from models.trajectron import Trajectron
 from models.autoencoder import AutoEncoder
-from dataset import EnvironmentDataset, collate, get_timesteps_data
+from dataset import EnvironmentDataset, collate, get_node_timestep_data#get_timesteps_data
 
 OBS_TENSOR = torch.Tensor([[[7.0400, 2.2700],
          [7.4500, 1.6900]],
@@ -38,6 +43,96 @@ OBS_TENSOR = torch.Tensor([[[7.0400, 2.2700],
 
         [[1.6300, 3.6700],
          [1.8000, 2.7800]]])
+
+OBS_TENSOR_2 = torch.Tensor([[[ 7.3800, -1.5500],
+         [    float('nan'),     float('nan')],
+         [    float('nan'),     float('nan')]],
+
+        [[ 6.9800, -1.5100],
+         [ 7.2600, -1.1000],
+         [    float('nan'),     float('nan')]],
+
+        [[ 6.5400, -1.4800],
+         [ 6.9100, -1.1100],
+         [    float('nan'),     float('nan')]],
+
+        [[ 6.0700, -1.4800],
+         [ 6.5300, -1.0800],
+         [    float('nan'),     float('nan')]],
+
+        [[ 5.5800, -1.4800],
+         [ 6.1200, -1.0100],
+         [    float('nan'),     float('nan')]],
+
+        [[ 5.0900, -1.4900],
+         [ 5.6900, -0.9300],
+         [    float('nan'),     float('nan')]],
+
+        [[ 4.6000, -1.5100],
+         [ 5.2400, -0.8600],
+         [    float('nan'),     float('nan')]],
+
+        [[ 4.1500, -1.5100],
+         [ 4.7800, -0.8000],
+         [-3.5300, -6.7400]],
+
+        [[ 3.7300, -1.5000],
+         [ 4.3000, -0.7600],
+         [-3.1400, -5.9000]]])
+
+OBS_TENSOR_3 = torch.Tensor([[[ 9.5700,  6.2400],
+         [11.9400,  6.7700],
+         [-1.8900,  4.3800], #fake
+         [-1.7100,  5.1300], #fake
+         [12.1600,  5.7500]],#fake
+
+        [[ 9.0800,  6.2600],
+         [11.4500,  6.9100],
+         [-1.8900,  4.3800],
+         [-1.7100,  5.1300],
+         [12.1600,  5.7500]],
+
+        [[ 8.5500,  6.3700],
+         [10.8300,  6.8000],
+         [-1.2800,  4.4600],
+         [-1.1200,  5.1100],
+         [11.6700,  5.8500]],
+
+        [[ 8.1000,  6.4800],
+         [10.3900,  6.7900],
+         [-0.6900,  4.4400],
+         [-0.5300,  5.0900],
+         [11.1000,  5.9200]],
+
+        [[ 7.6400,  6.5500],
+         [ 9.8400,  6.8600],
+         [-0.0800,  4.2400],
+         [ 0.0900,  5.0200],
+         [10.5100,  5.9100]],
+
+        [[ 7.1700,  6.6200],
+         [ 9.3600,  6.8500],
+         [ 0.6000,  4.2300],
+         [ 0.7600,  5.0000],
+         [10.0000,  5.8900]],
+
+        [[ 6.7300,  6.6400],
+         [ 8.9500,  6.8000],
+         [ 1.2000,  4.1700],
+         [ 1.3600,  4.9300],
+         [ 9.4400,  6.0000]],
+
+        [[ 6.3400,  6.7100],
+         [ 8.4100,  6.8700],
+         [ 1.8000,  4.1100],
+         [ 1.9600,  4.8700],
+         [ 8.9100,  6.0300]],
+
+        [[ 5.9900,  6.7700],
+         [ 7.9500,  6.8600],
+         [ 2.4500,  4.0900],
+         [ 2.6000,  4.8500],
+         [ 8.4100,  6.0200]]])
 
 RAW_PRED_SLSTM = torch.Tensor([[[ 5.8722,  2.4143],
          [ 6.2698,  1.6188]],
@@ -200,12 +295,12 @@ HYPERS = {   'batch_size': 256,
     'tao': 0.4}
 
 class DataPreproc():
-    def __init__(self, node_type = "PEDESTRIAN", dt = 0.4, t_obs = 9, t_pred = 12, standardization = standardization):
+    def __init__(self, node_type = "PEDESTRIAN", dt = 0.4, t_obs = 6, t_noise = 3, standardization = standardization):
         """
         scene : T x N_ag x 2 = 21 x Nag x 2
         """
         self.t_obs = t_obs
-        self.t_pred = t_pred
+        self.t_noise = t_noise
 
         self.dt = dt                ## ?????
 
@@ -218,63 +313,64 @@ class DataPreproc():
 
         self.data_columns = pd.MultiIndex.from_product([['position', 'velocity', 'acceleration'], ['x', 'y']])
 
-    def preproc_scene(self, scene_tensor:torch.Tensor):
-        """
-        params:
-        -------
+    # def preproc_scene(self, scene_tensor:torch.Tensor):
+    #     """
+    #     params:
+    #     -------
 
-        scene : our format : T x N_ag x 2 = 21 x Nag x 2
+    #     scene : our format : T x N_ag x 2 = 21 x Nag x 2
 
-        returns:
-        --------
+    #     returns:
+    #     --------
 
-        batch : sea
-        nodes : 
-        timestep : 
-        """
-        obs_sc = scene_tensor.clone().numpy() #scene_tensor[:self.t_obs].numpy()
+    #     batch : sea
+    #     nodes : 
+    #     timestep : 
+    #     """
+    #     obs_sc = scene_tensor.clone().numpy() #scene_tensor[:self.t_obs].numpy()
 
-        t_tot = scene_tensor.shape[0]
-        n_agents = scene_tensor.shape[1]
+    #     t_tot = scene_tensor.shape[0]
+    #     n_agents = scene_tensor.shape[1]
 
-        scene = Scene(timesteps=self.t_obs+1, dt=self.dt, name="scene_custom", aug_func=None)
+    #     scene = Scene(timesteps=self.t_obs+1, dt=self.dt, name="scene_custom", aug_func=None)
 
-        for i_ag in range(n_agents):
-            node = obs_sc[:,i_ag,:] #node == agent, now is Tx2
+    #     for i_ag in range(n_agents):
+    #         node = obs_sc[:,i_ag,:] #node == agent, now is Tx2
 
-            new_first_idx = 0 #int(~node.isnan()).nonzero() #node_df['frame_id'].iloc[0] ##stil TODO ? all 0?, relative ? 
+    #         breakpoint()
+    #         new_first_idx = 0 #int(~node.isnan()).nonzero() #node_df['frame_id'].iloc[0] ##stil TODO ? all 0?, relative ? 
 
-            x = node[:, 0]
-            y = node[:, 1]
-            vx = derivative_of(x, self.dt)
-            vy = derivative_of(y, self.dt)
-            ax = derivative_of(vx, self.dt)
-            ay = derivative_of(vy, self.dt)
+    #         x = node[:, 0]
+    #         y = node[:, 1]
+    #         vx = derivative_of(x, self.dt)
+    #         vy = derivative_of(y, self.dt)
+    #         ax = derivative_of(vx, self.dt)
+    #         ay = derivative_of(vy, self.dt)
 
-            data_dict = {('position', 'x'): x,
-                         ('position', 'y'): y,
-                         ('velocity', 'x'): vx,
-                         ('velocity', 'y'): vy,
-                         ('acceleration', 'x'): ax,
-                         ('acceleration', 'y'): ay}
+    #         data_dict = {('position', 'x'): x,
+    #                      ('position', 'y'): y,
+    #                      ('velocity', 'x'): vx,
+    #                      ('velocity', 'y'): vy,
+    #                      ('acceleration', 'x'): ax,
+    #                      ('acceleration', 'y'): ay}
         
-            node_data = pd.DataFrame(data_dict, columns=self.data_columns)
-            node = Node(node_type=self.env.NodeType.PEDESTRIAN, node_id=str(i_ag), data=node_data)
-            node.first_timestep = new_first_idx
+    #         node_data = pd.DataFrame(data_dict, columns=self.data_columns)
+    #         node = Node(node_type=self.env.NodeType.PEDESTRIAN, node_id=str(i_ag), data=node_data)
+    #         node.first_timestep = new_first_idx
 
-            scene.nodes.append(node)
+    #         scene.nodes.append(node)
 
-        self.env.scenes = [scene] #scenes is a list of 1 scene
+    #     self.env.scenes = [scene] #scenes is a list of 1 scene
 
-        #breakpoint()
-        timesteps = np.arange(0,self.t_obs)
-        ht = 9-1 #no constrain on history or future
-        ft = 12
-        batch = get_timesteps_data(env=self.env, scene=scene, t=timesteps, node_type=self.node_type, state=HYPERS['state'],
-                pred_state=HYPERS['pred_state'], edge_types=self.env.get_edge_types(),
-                min_ht=ht, max_ht=ht, min_ft=ft, max_ft=ft, hyperparams=HYPERS)
-        #breakpoint()
-        return batch[0], batch[1], batch[2]
+    #     #breakpoint()
+    #     timesteps = np.arange(0,self.t_obs)
+    #     ht = 9-1 #no constrain on history or future
+    #     ft = 12
+    #     batch = get_timesteps_data(env=self.env, scene=scene, t=timesteps, node_type=self.node_type, state=HYPERS['state'],
+    #             pred_state=HYPERS['pred_state'], edge_types=self.env.get_edge_types(),
+    #             min_ht=ht, max_ht=ht, min_ft=ft, max_ft=ft, hyperparams=HYPERS)
+    #     #breakpoint()
+    #     return batch[0], batch[1], batch[2]
 
 
     def preproc_scene_only_obs(self, scene_tensor:torch.Tensor):
@@ -296,19 +392,24 @@ class DataPreproc():
             t_tot = scene_tensor.shape[0]
             n_agents = scene_tensor.shape[1]
 
-            scene = Scene(timesteps=self.t_obs+1, dt=self.dt, name="scene_custom", aug_func=None)
+            #scene should contain everything : all timesteps
+            scene = Scene(timesteps=self.t_obs+self.t_noise, dt=self.dt, name="scene_custom", aug_func=None)
 
             for i_ag in range(n_agents):
                 node = obs_sc[:,i_ag,:] #node == agent, now is Tx2
+                
 
-                new_first_idx = 0 #int(~node.isnan()).nonzero() #node_df['frame_id'].iloc[0] ##stil TODO ? all 0?, relative ? 
+                new_first_idx = (np.isnan(node)).sum(axis=0)[0]
 
                 x = node[:, 0]
                 y = node[:, 1]
+                x = x[~np.isnan(x)] #remoove nan : scene will begin at new_first_idx
+                y = y[~np.isnan(y)]
                 vx = derivative_of(x, self.dt)
                 vy = derivative_of(y, self.dt)
                 ax = derivative_of(vx, self.dt)
                 ay = derivative_of(vy, self.dt)
+
 
                 data_dict = {('position', 'x'): x,
                             ('position', 'y'): y,
@@ -324,27 +425,98 @@ class DataPreproc():
                 scene.nodes.append(node)
 
             self.env.scenes = [scene] #scenes is a list of 1 scene
+            #breakpoint()
 
             #breakpoint()
             timesteps = np.arange(0,self.t_obs)
-            ht = 1-1 #only first data is know, rest is to pred
-            ft = 8
-            batch = get_timesteps_data(env=self.env, scene=scene, t=timesteps, node_type=self.node_type, state=HYPERS['state'],
+            max_ht = self.t_obs-1 #6 first known
+            min_ht = 1-1 #need to have a least 1 point ## 1-1 works ??'
+            ft = self.t_noise     #we require that the 3 data are known
+            #breakpoint() #voir comment nan sont geré ? node supr a cause de ht/ft ? 
+            batch = self.get_timesteps_data_custom(env=self.env, scene=scene, t=timesteps, node_type=self.node_type, state=HYPERS['state'],
                     pred_state=HYPERS['pred_state'], edge_types=self.env.get_edge_types(),
-                    min_ht=ht, max_ht=ht, min_ft=ft, max_ft=ft, hyperparams=HYPERS)
+                    min_ht=min_ht, max_ht=max_ht, min_ft=ft, max_ft=ft, hyperparams=HYPERS)
             #breakpoint()
             return batch[0], batch[1], batch[2]
 
-# def get_scenes(data:list(torch.Tensor)) -> list(Scene):
-#     """
-#     return format is then used like in orig file.
-#     One scene per dataset + train/test : e.g. eth_train is ONE scene
-#     """
-#     env = Environment(node_type_list=['PEDESTRIAN'], standardization=standardization)
+    
 
-#     attention_radius = dict()
-#     attention_radius[(env.NodeType.PEDESTRIAN, env.NodeType.PEDESTRIAN)] = 3.0
-#     env.attention_radius = attention_radius
+
+    #OVERRIDDING A FUNCTION
+    def get_timesteps_data_custom(self, env, scene, t, node_type, state, pred_state,
+                        edge_types, min_ht, max_ht, min_ft, max_ft, hyperparams):
+        """
+        Puts together the inputs for ALL nodes in a given scene and timestep in it.
+
+        Overridd to not have duplicates of the same agent
+
+        :param env: Environment
+        :param scene: Scene
+        :param t: Timestep in scene
+        :param node_type: Node Type of nodes for which the data shall be pre-processed
+        :param state: Specification of the node state
+        :param pred_state: Specification of the prediction state
+        :param edge_types: List of all Edge Types for which neighbors are pre-processed
+        :param max_ht: Maximum history timesteps
+        :param max_ft: Maximum future timesteps (prediction horizon)
+        :param hyperparams: Model hyperparameters
+        :return:
+        """
+        #breakpoint()
+        nodes_per_ts = scene.present_nodes(t,
+                                        type=node_type,
+                                        min_history_timesteps=min_ht,
+                                        min_future_timesteps=max_ft,
+                                        return_robot=not hyperparams['incl_robot_node'])
+
+        #only keep last timestep for each agent (avoid duplicates)
+
+        new_nodes_per_ts = {} #empty dict
+        used_agents = set() #set with wich agent have already been seen
+        for k,v in sorted(nodes_per_ts.items(),  reverse = True): #go descending order
+            ag = []
+            for agent in v:
+                if agent not in used_agents:
+                    ag.append(agent)
+                    used_agents.add(agent)
+            if ag:
+                new_nodes_per_ts[k] = ag
+        
+        #back in chrono order
+        nodes_per_ts = dict(sorted(new_nodes_per_ts.items()))
+        #breakpoint()
+        batch = list()
+        nodes = list()
+        out_timesteps = list()
+        #breakpoint()
+        for timestep in nodes_per_ts.keys():
+                scene_graph = scene.get_scene_graph(timestep,
+                                                    env.attention_radius,
+                                                    hyperparams['edge_addition_filter'],
+                                                    hyperparams['edge_removal_filter'])
+                present_nodes = nodes_per_ts[timestep]
+                for node in present_nodes:
+                    nodes.append(node)
+                    out_timesteps.append(timestep)
+                    batch.append(get_node_timestep_data(env, scene, timestep, node, state, pred_state,
+                                                        edge_types, max_ht, max_ft, hyperparams,
+                                                        scene_graph=scene_graph))
+        if len(out_timesteps) == 0:
+            return None
+        return collate(batch), nodes, out_timesteps
+
+
+    def discard_nodes(self, observation, nodes):
+        present_nodes = set()
+        for node in nodes:
+            present_nodes.add(node.id)
+
+        keep = []
+        num_ag = observation.shape[1]
+        keep = [str(i) in present_nodes for i in range(num_ag)]
+
+        return observation[:,keep,:]
+
 
 class DiffDenoiser():
     def __init__(self, config, model_path, dt=0.4, node_type = "PEDESTRIAN", device = torch.device("cuda"), beta_T = 0.05):
@@ -374,7 +546,7 @@ class DiffDenoiser():
         self.train_data_path = "processed_data/eth_train.pkl"
         with open(self.train_data_path, 'rb') as f:
             self.train_env = dill.load(f, encoding='latin1')
-        self.encoder.set_environment(self.train_env) #FDP !!!
+        self.encoder.set_environment(self.train_env)
         self.encoder.set_annealing_params()
 
         config = self.config
@@ -386,6 +558,7 @@ class DiffDenoiser():
         print("> Model built!")
 
     def get_context(self, batch):
+        #breakpoint()
         context = self.model.encoder.get_latent(batch, self.node_type)
         return context
 
@@ -403,8 +576,8 @@ class DiffDenoiser():
         noisy_obs : 
         t_noise (int): the coresponding timestep (0-100)
         """
+        #breakpoint()
         t_noise = self.get_t(sigma)
-        breakpoint()
         alpha_t = self.model.diffusion.var_sched.alphas[t_noise].to("cpu")
 
         noisy_obs = obs*alpha_t.sqrt() + (1 - alpha_t).sqrt()*torch.randn_like(obs)
@@ -424,26 +597,26 @@ class DiffDenoiser():
         return round((1-beta1-term)/(betaT-beta1)*num_step)
 
 
-    def denoise_trough_pos_one_shot(self, t_noise, noisy_obs:torch.Tensor, context, Tpred = 12):
-        """
-        not finished !!!
-        params:
-        -------
+    # def denoise_trough_pos_one_shot(self, t_noise, noisy_obs:torch.Tensor, context, Tpred = 12):
+    #     """
+    #     not finished !!!
+    #     params:
+    #     -------
 
-        t_noise(int): timestep at which the noise (sigma) coresponds
-        noisy_obs(torch.Tensor) :  must be in our format : Tpred x N_ag x 2 : IS THEPOSITION 
-        context : encoding of the scene
+    #     t_noise(int): timestep at which the noise (sigma) coresponds
+    #     noisy_obs(torch.Tensor) :  must be in our format : Tpred x N_ag x 2 : IS THEPOSITION 
+    #     context : encoding of the scene
 
-        """
+    #     """
 
-        var_sched = self.model.diffusion.var_sched #scheduler of Trajectron of autoencoder
-        decoder_trans = self.model.diffusion.net #type TransformerConcatLinear
+    #     var_sched = self.model.diffusion.var_sched #scheduler of Trajectron of autoencoder
+    #     decoder_trans = self.model.diffusion.net #type TransformerConcatLinear
 
-        batch_size = context.size(0)
+    #     batch_size = context.size(0)
 
-        noisy_obs = noisy_obs.permute((1,0,2)) # now N_ag x Tpred x 2
+    #     noisy_obs = noisy_obs.permute((1,0,2)) # now N_ag x Tpred x 2
 
-    def denoise_trough_vel(self, t_noise, noisy_obs:torch.Tensor, context, Tobs = 9, stride=None):
+    def denoise_trough_vel(self, t_noise, noisy_obs:torch.Tensor, context, stride=None, sampling="ddpm"):
         """
         params:
         -------
@@ -462,46 +635,66 @@ class DiffDenoiser():
         decoder_trans = self.model.diffusion.net #type TransformerConcatLinear
 
         batch_size = context.size(0)
+        #breakpoint()
 
         noisy_obs = noisy_obs.permute((1,0,2)) # now N_ag x Tpred x 2
 
         v_t = self.get_velocity(noisy_obs).to(self.device) #x_T is veolity space
-        breakpoint()
+        #breakpoint()
         #verif
 
+        flexibility = 0.0
+
         for t in range(t_noise, 0, -stride):
-            #z = torch.randn_like(x_T) if t > 1 else torch.zeros_like(x_T)
-            #alpha = var_sched.alphas[t]
+
+            z = torch.randn_like(v_t) if t > 1 else torch.zeros_like(v_t)
+            alpha = var_sched.alphas[t]
             alpha_bar = var_sched.alpha_bars[t]
             alpha_bar_next = var_sched.alpha_bars[t-stride]
-            #pdb.set_trace()
 
-            #only for ddpm ( not us)
-            # sigma = var_sched.get_sigmas(t, flexibility)
-            # c0 = 1.0 / torch.sqrt(alpha)
-            # c1 = (1 - alpha) / torch.sqrt(1 - alpha_bar)
-            # if sampling == "ddpm":
-            #     x_next = c0 * (x_t - c1 * e_theta) + sigma * z
-            # elif sampling == "ddim":
+            sigma = var_sched.get_sigmas(t, flexibility)
 
+            c0 = 1.0 / torch.sqrt(alpha)
+            c1 = (1 - alpha) / torch.sqrt(1 - alpha_bar)
 
 
             beta = var_sched.betas[[t]*batch_size]
+            #breakpoint()
             e_theta = decoder_trans(v_t, beta=beta, context=context)
+            if sampling == "ddpm":
+                v_next = c0 * (v_t - c1 * e_theta) + sigma * z
+            elif sampling == "ddim":
+                v0_t = (v_t - e_theta * (1 - alpha_bar).sqrt()) / alpha_bar.sqrt()
+                v_next = alpha_bar_next.sqrt() * v0_t + (1 - alpha_bar_next).sqrt() * e_theta
 
-            v0_t = (v_t - e_theta * (1 - alpha_bar).sqrt()) / alpha_bar.sqrt()
-            v_next = alpha_bar_next.sqrt() * v0_t + (1 - alpha_bar_next).sqrt() * e_theta
+            v_t = v_next    # Stop gradient and save trajectory.
 
-            v_t = v_next.detach()     # Stop gradient and save trajectory.
 
-        breakpoint()
+
+
+            # beta = var_sched.betas[[t]*batch_size]
+            # e_theta = decoder_trans(v_t, beta=beta, context=context)
+
+            # v0_t = (v_t - e_theta * (1 - alpha_bar).sqrt()) / alpha_bar.sqrt()
+            # v_next = alpha_bar_next.sqrt() * v0_t + (1 - alpha_bar_next).sqrt() * e_theta
+
+            # v_t = v_next.detach()     # Stop gradient and save trajectory.
 
         dynamics = self.model.encoder.node_models_dict[self.node_type].dynamic
-        obs_denoised = dynamics.integrate_samples(v_t)
+        obs_denoised = dynamics.integrate_samples(v_t.unsqueeze(0)).squeeze(0) # Dynamics is expecting a batch of speed !!!!
 
         obs_denoised = obs_denoised.permute((1,0,2)) # now Tpred x N_ag x 2
+        #breakpoint()
+
+        #other
+        #pos = self.integrate_velocity(v_t, last pos of unnoised obs (6th value, pos 5))
+
 
         return obs_denoised
+    
+    def integrate_velocity(self, init_pos:torch.tensor, vel:torch.Tensor):
+        return torch.cumsum(vel, dim=1) * self.dt + init_pos                ##carefull wich dim
+
 
 
     def get_velocity(self, pos:torch.Tensor):
@@ -529,17 +722,27 @@ def main():
 
     node_type = "PEDESTRIAN"
     dt = 0.4                        ##???
-    t_pred = 12
-    t_obs = 9
+    #t_pred = 12
+    #t_obs = 9
+    t_noise = 6
+    t_obs = 3
     beta_T = 0.05          #orig, trained with 0.05          ##final variance ? 
 
-    data_prec = DataPreproc(node_type = node_type, dt = dt, t_pred = t_pred)
+    data_prec = DataPreproc(node_type = node_type, dt = dt, t_obs = t_obs, t_noise = t_noise)
     #scene_test = torch.rand((21,4,2))
-    scene_test = torch.cat((OBS_TENSOR[:t_obs,:,:], RAW_PRED_SLSTM[-t_pred:,:,]), dim = 0)
-    breakpoint()
+    #scene_test = torch.cat((OBS_TENSOR[:t_obs,:,:], RAW_PRED_SLSTM[-t_pred:,:,]), dim = 0)
+    #breakpoint()
+
+    time_before = time.perf_counter()
+
+    observation = OBS_TENSOR_3
 
     #batch, nodes, timesteps_o = data_prec.preproc_scene(scene_test) #whole scene
-    batch, nodes, timesteps_o = data_prec.preproc_scene_only_obs(OBS_TENSOR) #konw obs is futur
+    batch, nodes, timesteps_o = data_prec.preproc_scene_only_obs(observation) #konw obs is futur
+
+    #discard agent with no "obs" in the first 6 -> can't be denoised
+    #breakpoint()
+    observation_clean = data_prec.discard_nodes(observation, nodes)
 
     #only at begining
     model_path = "experiments/my_config_eval/eth_epoch60.pt"
@@ -554,21 +757,59 @@ def main():
 
     #WE NOISE ON OBS, NOT PRED
     #pred = scene_test[-t_pred:,:,:].clone() #now 12xnagx2
-    obs = scene_test[:t_obs,:,:].clone() 
+    #obs = scene_test[:t_obs,:,:].clone() 
+    last_3_obs = observation_clean[-t_noise:,:,:].clone().detach()
 
     sigma = 0.1
-    breakpoint()
-    noisy_obs, t_noise = dd.noise_with_diff(obs, sigma)
+    #breakpoint()
+    noisy_last_3_obs, t_coresp_noise = dd.noise_with_diff(last_3_obs, sigma)
     #noisy_obs = obs
     #t_noise = 47
-    denoised_pred = dd.denoise_trough_vel(t_noise, noisy_obs, context)
-    breakpoint()
-    pass
+
+    #do all in one step
+    denoised_last_3_obs = dd.denoise_trough_vel(t_coresp_noise, noisy_last_3_obs, context, sampling="ddim")
+    denoised_last_3_obs = denoised_last_3_obs.cpu().detach()
+
+    time_after = time.perf_counter()
+    print("time : ", time_after - time_before)
+
+    #same, but step by step
+    denoised_last_3_obs_stride_1 = dd.denoise_trough_vel(t_noise, noisy_last_3_obs, context, stride = 1, sampling="ddim")
+    denoised_last_3_obs_stride_1 = denoised_last_3_obs_stride_1.cpu().detach()
+    #breakpoint()
+
+    nag = denoised_last_3_obs.shape[1]
+    for i, i_ag in enumerate(range(nag)):
+        #obs_i = observation_clean[:,i_ag,:]
+        obs_i = observation_clean[:(t_obs + 1),i_ag,:]
+        last_3_obs_i = last_3_obs[:,i_ag,:]
+        noisy_3_obs_i = noisy_last_3_obs[:,i_ag,:]
+        denoised_3_obs_i = denoised_last_3_obs[:,i_ag,:]
+        denoised_3_obs_i_s1 = denoised_last_3_obs_stride_1[:,i_ag,:]
+
+        if i == 0:
+            #plt.plot(obs_i[:,0], obs_i[:,1], c="r", label="real obs")
+            plt.plot(obs_i[:,0], obs_i[:,1], c="r", label="untouched")
+            plt.plot(last_3_obs_i[:,0], last_3_obs_i[:,1], c="y", label="will be noised")
+            plt.plot(noisy_3_obs_i[:,0], noisy_3_obs_i[:,1], c="g", label="noised")
+            plt.plot(denoised_3_obs_i[:,0], denoised_3_obs_i[:,1], c="cyan", label="denoise (only one step)")
+            plt.plot(denoised_3_obs_i_s1[:,0], denoised_3_obs_i_s1[:,1], c="b", label="many steps (1 by 1)")
+        else:
+            #plt.plot(obs_i[:,0], obs_i[:,1], c="r")
+            plt.plot(obs_i[:,0], obs_i[:,1], c="r")
+            plt.plot(last_3_obs_i[:,0], last_3_obs_i[:,1], c="y")
+            plt.plot(noisy_3_obs_i[:,0], noisy_3_obs_i[:,1], c="g")
+            plt.plot(denoised_3_obs_i[:,0], denoised_3_obs_i[:,1], c="cyan")
+            plt.plot(denoised_3_obs_i_s1[:,0], denoised_3_obs_i_s1[:,1], c="b")
     
+    plt.legend()
+    plt.savefig('plot_diffusion_denoise.png')
+    #time.sleep(5)
+    #YESSS !
     
     
     #eval_senes()
-
+    #breakpoint()
     scenes = []
 
 

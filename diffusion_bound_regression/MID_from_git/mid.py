@@ -136,7 +136,7 @@ class MID():
                 test_batch = batch[0]
                 nodes = batch[1]
                 timesteps_o = batch[2]
-                breakpoint() 
+                #breakpoint() 
                 #see type of test_batch : list of tensor of various size...
                 traj_pred = self.model.generate(test_batch, node_type, num_points=12, sample=20,bestof=True, sampling=sampling, step=step) # B * 20 * 12 * 2
 

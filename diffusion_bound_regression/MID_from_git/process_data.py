@@ -185,7 +185,7 @@ for desired_source in ['eth', 'hotel', 'univ', 'zara1', 'zara2']:
 
                     print(scene)
                     scenes.append(scene)
-                    breakpoint()
+                    #breakpoint()
         print(f'Processed {len(scenes):.2f} scene for data class {data_class}')
 
         env.scenes = scenes

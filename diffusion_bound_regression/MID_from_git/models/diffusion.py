@@ -190,6 +190,7 @@ class TransformerConcatLinear(Module):
 
 
     def forward(self, x, beta, context):
+        #breakpoint()
         batch_size = x.size(0)
         beta = beta.view(batch_size, 1, 1)          # (B, 1, 1)
         context = context.view(batch_size, 1, -1)   # (B, 1, F)
