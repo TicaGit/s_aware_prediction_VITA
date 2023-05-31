@@ -2,7 +2,7 @@
 # optimizer
 lr: 0.001
 # dataset
-data_dir: processed_data
+data_dir: diffusion_bound_regression/MID_from_git/processed_data
   # the path with the directory with XXX.pkl
 # Training Prarmeters:
 diffnet: TransformerConcatLinear #TransformerConcatLinear
@@ -42,5 +42,5 @@ scene_freq_mult_eval: False
 scene_freq_mult_viz: False
 no_edge_encoding: False
 # Data Parameters:
-device: cuda
+device: cpu
 eval_device: None

@@ -8,14 +8,40 @@ import dill
 import matplotlib.pyplot as plt
 import time
 
-from .environment import Environment, Scene, Node, derivative_of
+from diffusion_bound_regression.MID_from_git.environment import Environment, Scene, Node, derivative_of
 
-from .models.encoders.dynamics.single_integrator import SingleIntegrator
+from diffusion_bound_regression.MID_from_git.models.encoders.dynamics.single_integrator import SingleIntegrator
 
-from .utils.model_registrar import ModelRegistrar
-from .models.trajectron import Trajectron
-from .models.autoencoder import AutoEncoder
-from .dataset import EnvironmentDataset, collate, get_node_timestep_data#get_timesteps_data
+#diffusion_bound_regression.MID_from_git
+from diffusion_bound_regression.MID_from_git.utils.model_registrar import ModelRegistrar #but for torch.load() -> *** ModuleNotFoundError: No module named 'models'
+#from diffusion_bound_regression.MID_from_git.utils.model_registrar import ModelRegistrar
+from diffusion_bound_regression.MID_from_git.models.trajectron import Trajectron
+from diffusion_bound_regression.MID_from_git.models.autoencoder import AutoEncoder
+from diffusion_bound_regression.MID_from_git.dataset import EnvironmentDataset, collate, get_node_timestep_data#get_timesteps_data
+
+
+### other 
+# import os
+# import argparse
+# import torch
+# import dill
+# import pdb
+# import numpy as np
+# import os.path as osp
+# import logging
+# import time
+# from torch import nn, optim, utils
+# import torch.nn as nn
+# #from tensorboardX import SummaryWriter
+# from tqdm.auto import tqdm
+# import pickle
+
+# from .dataset import EnvironmentDataset, collate, get_timesteps_data, restore
+# from .models.autoencoder import AutoEncoder
+# from .models.trajectron import Trajectron
+# from .utils.model_registrar import ModelRegistrar
+# from .utils.trajectron_hypers import get_traj_hypers
+# import diffusion_bound_regression.MID_from_git.evaluation
 
 OBS_TENSOR = torch.Tensor([[[7.0400, 2.2700],
          [7.4500, 1.6900]],
@@ -533,11 +559,18 @@ class DiffDenoiser():
         self.hyperparams['enc_rnn_dim_edge_influence'] = self.config.encoder_dim//2
         self.hyperparams['enc_rnn_dim_history'] = self.config.encoder_dim//2
         self.hyperparams['enc_rnn_dim_future'] = self.config.encoder_dim//2
-
         # REGISTAR load for eval
         self.registrar = ModelRegistrar(model_path, self.device) #path correct ?? 
 
+        breakpoint()
+        #from pathlib import Path
+        # str_path = "my_path"
+        # path = Path(str_path)
+        #model_path = "./experiments/my_config_eval/eth_epoch60.pt"
+        #import os
+        #model_path = os.path.join(self.model_dir, f"{self.config.dataset}_epoch{self.config.eval_at}.pt")
         checkpoint = torch.load(model_path, map_location = "cpu")
+        breakpoint()
         self.registrar.load_models(checkpoint['encoder'])
 
         #ENCODER load for eval

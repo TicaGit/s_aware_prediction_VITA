@@ -8,6 +8,8 @@ import random
 from operator import itemgetter
 import matplotlib.pyplot as plt
 import time
+import yaml
+from easydict import EasyDict
 
 
 import trajnetplusplustools
@@ -28,6 +30,8 @@ class SmoothBounds():
                  pred_length = 12,
                  collision_treshold = 0.2,
                  obs_length = 9,
+                 t_clean = 6, #part of obs we dont add noise on
+                 t_noise = 3, #part of obs we add noise on
                  bound_margin = 0.2,
                  function = "mean"
                  ) -> None:
@@ -43,6 +47,24 @@ class SmoothBounds():
         self.bound_margin = bound_margin
 
         self.function = function
+        if function == "diffusion":
+            self._init_difusion(t_clean = t_clean, t_noise = t_noise)
+    
+    def _init_difusion(self, t_clean, t_noise, dt = 0.4, node_type = "PEDESTRIAN"):
+        #only at begining
+        #model_path = "diffusion_bound_regression/MID_from_git/experiments/my_config_eval/eth_epoch60.pt"
+        model_path = "eth_epoch60.pt"
+        config_path="diffusion_bound_regression/MID_from_git/configs/my_config_eval.yaml"
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+            config = EasyDict(config)
+        config["dataset"] = "eth"
+
+        #instanciate data preprocessor
+        self.data_prec = DataPreproc(node_type = node_type, dt = dt, t_clean = t_clean, t_noise = t_noise)
+        #instanciate diffusion denoiser object
+        self.dd = DiffDenoiser(config = config, model_path = model_path, dt = dt, node_type = node_type,
+                               device=self.device)
 
     def preprocess_scenes(self, scenes: list, goals:list, remove_static:bool = False):
         """
@@ -164,9 +186,9 @@ class SmoothBounds():
         note : this bound are based on the MEAN (not median)
         """
         if self.function == "mean":
-            mean_pred, low_b, up_b = self.eval_g(observed, goal, batch_split, self.n0)
+            mean_pred, low_b, up_b = self.eval_g(observed, goal, batch_split, self.n0, diffusion=False)
         elif self.function == "diffusion":
-            mean_pred, low_b, up_b = self.eval_g_diffusion(observed, goal, batch_split, self.n0)
+            mean_pred, low_b, up_b = self.eval_g(observed, goal, batch_split, self.n0, diffusion=True)
         elif self.function == "median1":
             mean_pred, low_b, up_b = self.eval_g_median1(observed, goal, batch_split, self.n0)
         elif self.function == "median2":
@@ -196,126 +218,24 @@ class SmoothBounds():
         #breakpoint()
 
         return mean_pred, bounds
-    
-    def eval_g_diffusion(self, observed, goal, batch_split,  num):
+
+    def eval_g(self, observed, goal, batch_split,  num, diffusion = False):
         """
-        Right : 
+        Evaluate the function g(x) = E(f(x + eps)), where E is the expectation, f the model and eps~N(0,I*sig^2)
+        of if diffusion = True
         Evaluate the function g(x) = E(f(denoise(x + eps))), where E is the expectation, f the model, 
         denoise the diffusion denoiser and eps~N(0,I*sig^2)
-        """
-        with torch.no_grad():
-
-            #define objects
-            #self.device is cpu
-            node_type = "PEDESTRIAN"
-            dt = 0.4
-            t_clean = 6             
-            t_noise = 3
-            
-
-            time_before = time.perf_counter()
-            
-            data_prec = DataPreproc(node_type = node_type, dt = dt, t_clean = t_clean, t_noise = t_noise)
-            breakpoint()
-            dd = DiffDenoiser(config = config, model_path = model_path, dt = dt, node_type = node_type, device=device, beta_T=beta_T)
-
-
-            breakpoint()
-
-
-
-            #necessary to put first iter here 
-            outputs_perturbed, noise = self._sample_noise_diffusion(observed.detach().clone(), goal, batch_split)
-            #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
-            #outputs_perturbed = torch.cat((observed + noise, outputs_perturbed[-self.pred_length:]))
-
-            #breakpoint()
-
-            mean_pred = outputs_perturbed.clone() #clone ! #keep nan is mean
-
-            #remoove nans
-            outputs_perturbed_neg10000 = outputs_perturbed.clone()
-            pred_nan = torch.isnan(outputs_perturbed)
-            for j in range(len(outputs_perturbed)):
-                for k in range(len(outputs_perturbed[0])):
-                    if any(pred_nan[j, k].tolist()):
-                        outputs_perturbed.data[j, k] = 10000
-                        outputs_perturbed_neg10000.data[j,k] = -10000
-                        outputs_perturbed[j, k].detach()
-                        outputs_perturbed_neg10000[j, k].detach()
-            
-            low_tot, _ = outputs_perturbed.view(-1, outputs_perturbed.shape[2]).min(axis=0)
-            high_tot, _ = outputs_perturbed_neg10000.view(-1, outputs_perturbed_neg10000.shape[2]).max(axis=0)
-
-            #lx, ly = torch.min(outputs_perturbed, )
-            
-
-
-            #visualize_scene(mean_pred)
-            #breakpoint()
-
-            for n in range(num - 1):
-                #predict output
-                outputs_perturbed, noise = self._sample_noise_diffusion(observed.detach().clone(), goal, batch_split)
-
-                #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
-                #outputs_perturbed = torch.cat((observed + noise, outputs_perturbed[-self.pred_length:]))
-
-                mean_pred += outputs_perturbed #keep nan is mean
-
-                outputs_perturbed_neg10000 = outputs_perturbed.clone()
-                pred_nan = torch.isnan(outputs_perturbed)
-                for j in range(len(outputs_perturbed)):
-                    for k in range(len(outputs_perturbed[0])):
-                        if any(pred_nan[j, k].tolist()):
-                            outputs_perturbed.data[j, k] = 10000
-                            outputs_perturbed_neg10000.data[j,k] = -10000
-                            outputs_perturbed[j, k].detach()
-                            outputs_perturbed_neg10000[j, k].detach()
-                
-                low, _ = outputs_perturbed.view(-1, outputs_perturbed.shape[2]).min(axis=0)
-                high, _ = outputs_perturbed_neg10000.view(-1, outputs_perturbed_neg10000.shape[2]).max(axis=0)
-                low_tot = torch.minimum(low_tot, low)
-                high_tot = torch.maximum(high_tot, high)
-
-
-
-
-
-                #visualize_scene(outputs_perturbed)
-                #breakpoint()
-
-            mean_pred /= num
-
-            #add a margin
-            diff = high_tot - low_tot
-            low_tot -= diff*self.bound_margin
-            high_tot += diff*self.bound_margin
-
-            low_tot = low_tot.repeat(mean_pred.shape[0], mean_pred.shape[1], 1)
-            high_tot = high_tot.repeat(mean_pred.shape[0], mean_pred.shape[1], 1)
-
-            #breakpoint()
-
-            return mean_pred, low_tot, high_tot
-        
-    def _sample_noise_diffusion(self, observed: torch.tensor, goals: torch.tensor, batch_split):
-        """
-        produce a output from a noisy version on input
-        """
-    
-
-    def eval_g(self, observed, goal, batch_split,  num):
-        """
-        Right : 
-        Evaluate the function g(x) = E(f(x + eps)), where E is the expectation, f the model and eps~N(0,I*sig^2)
         """
         # smallest_pred = [None, None]
         # smallest_l2_norm = np.ones(self.num_classes) * np.inf
         
         with torch.no_grad():
             #necessary to put first iter here 
-            outputs_perturbed, noise = self._sample_noise(observed.detach().clone(), goal, batch_split)
+            if diffusion:
+                breakpoint()
+                outputs_perturbed, noise = self._sample_noise_diffusion(observed.detach().clone(), goal, batch_split)
+            else:
+                outputs_perturbed, noise = self._sample_noise(observed.detach().clone(), goal, batch_split)
             #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
             #outputs_perturbed = torch.cat((observed + noise, outputs_perturbed[-self.pred_length:]))
 
@@ -566,6 +486,16 @@ class SmoothBounds():
                 noisy_observation, goals, batch_split, n_predict=self.pred_length
             )
             return outputs_perturbed, noise   
+        
+    def _sample_noise_diffusion(self, observed: torch.tensor, goals: torch.tensor, batch_split):
+        """
+        produce a output from a noisy version on input, but denoise it with diffusion
+        """
+
+        observation = observed
+        batch, nodes, timesteps_o = data_prec.preproc_scene_only_obs(observation)
+
+        observation_clean = data_prec.discard_nodes(observation, nodes) #discard ?? 
 
 
     def eval_eta(self, g, l, u):

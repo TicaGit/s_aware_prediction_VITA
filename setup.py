@@ -10,6 +10,8 @@ setup(
         'bounded_regression',
         'diffusion_bound_regression',
         'diffusion_bound_regression.MID_from_git.environment',
+        'diffusion_bound_regression.MID_from_git.models',
+        'diffusion_bound_regression.MID_from_git.utils',
     ],
     install_requires=[
         'numpy',
