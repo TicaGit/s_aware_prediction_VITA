@@ -295,11 +295,11 @@ HYPERS = {   'batch_size': 256,
     'tao': 0.4}
 
 class DataPreproc():
-    def __init__(self, node_type = "PEDESTRIAN", dt = 0.4, t_obs = 6, t_noise = 3, standardization = standardization):
+    def __init__(self, node_type = "PEDESTRIAN", dt = 0.4, t_clean = 6, t_noise = 3, standardization = standardization):
         """
         scene : T x N_ag x 2 = 21 x Nag x 2
         """
-        self.t_obs = t_obs
+        self.t_clean = t_clean
         self.t_noise = t_noise
 
         self.dt = dt                ## ?????
@@ -393,7 +393,7 @@ class DataPreproc():
             n_agents = scene_tensor.shape[1]
 
             #scene should contain everything : all timesteps
-            scene = Scene(timesteps=self.t_obs+self.t_noise, dt=self.dt, name="scene_custom", aug_func=None)
+            scene = Scene(timesteps=self.t_clean+self.t_noise, dt=self.dt, name="scene_custom", aug_func=None)
 
             for i_ag in range(n_agents):
                 node = obs_sc[:,i_ag,:] #node == agent, now is Tx2
@@ -428,8 +428,8 @@ class DataPreproc():
             #breakpoint()
 
             #breakpoint()
-            timesteps = np.arange(0,self.t_obs)
-            max_ht = self.t_obs-1 #6 first known
+            timesteps = np.arange(0,self.t_clean)
+            max_ht = self.t_clean-1 #6 first known
             min_ht = 1-1 #need to have a least 1 point ## 1-1 works ??'
             ft = self.t_noise     #we require that the 3 data are known
             #breakpoint() #voir comment nan sont geré ? node supr a cause de ht/ft ? 
@@ -720,15 +720,17 @@ class DiffDenoiser():
 
 def main():
 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     node_type = "PEDESTRIAN"
     dt = 0.4                        ##???
     #t_pred = 12
     #t_obs = 9
-    t_noise = 6
-    t_obs = 3
+    t_noise = 3
+    t_clean = 6
     beta_T = 0.05          #orig, trained with 0.05          ##final variance ? 
 
-    data_prec = DataPreproc(node_type = node_type, dt = dt, t_obs = t_obs, t_noise = t_noise)
+    data_prec = DataPreproc(node_type = node_type, dt = dt, t_clean = t_clean, t_noise = t_noise)
     #scene_test = torch.rand((21,4,2))
     #scene_test = torch.cat((OBS_TENSOR[:t_obs,:,:], RAW_PRED_SLSTM[-t_pred:,:,]), dim = 0)
     #breakpoint()
@@ -750,7 +752,7 @@ def main():
     with open(config_path) as f:
        config = yaml.safe_load(f)
     config = EasyDict(config)
-    dd = DiffDenoiser(config = config, model_path = model_path, dt = dt, node_type = node_type, beta_T=beta_T)
+    dd = DiffDenoiser(config = config, model_path = model_path, dt = dt, node_type = node_type, device=device, beta_T=beta_T)
 
     ##
     context = dd.get_context(batch) #Nag x 256
@@ -781,7 +783,7 @@ def main():
     nag = denoised_last_3_obs.shape[1]
     for i, i_ag in enumerate(range(nag)):
         #obs_i = observation_clean[:,i_ag,:]
-        obs_i = observation_clean[:(t_obs + 1),i_ag,:]
+        obs_i = observation_clean[:(t_clean + 1),i_ag,:]
         last_3_obs_i = last_3_obs[:,i_ag,:]
         noisy_3_obs_i = noisy_last_3_obs[:,i_ag,:]
         denoised_3_obs_i = denoised_last_3_obs[:,i_ag,:]

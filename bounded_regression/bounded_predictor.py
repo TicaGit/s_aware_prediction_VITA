@@ -140,7 +140,7 @@ def parse_args():
                                  help='obs length dropout')
     ###thibaud###
     parser.add_argument('--function', default='mean',
-                        choices=('mean', 'median1', 'median2'),
+                        choices=('mean', 'median1', 'median2', 'diffusion'),
                         help='type of evaluation of the expectation')
     args = parser.parse_args()
     return args
@@ -183,7 +183,7 @@ def main(epochs=10):
     if args.type == 'hiddenstatemlp':
         pool = HiddenStateMLPPooling(hidden_dim=args.hidden_dim, out_dim=args.pool_dim,
                                      mlp_dim_vel=args.vel_dim)
-    elif args.type == 'd_pool':
+    elif args.type == 'd_pool':  # always this one
         pool = NN_LSTM(n=args.neigh, hidden_dim=args.hidden_dim, out_dim=args.pool_dim)
     elif args.type == 's_att':
         pool = SAttention(hidden_dim=args.hidden_dim, out_dim=args.pool_dim)
