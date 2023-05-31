@@ -52,13 +52,15 @@ class SmoothBounds():
     
     def _init_difusion(self, t_clean, t_noise, dt = 0.4, node_type = "PEDESTRIAN"):
         #only at begining
-        #model_path = "diffusion_bound_regression/MID_from_git/experiments/my_config_eval/eth_epoch60.pt"
-        model_path = "eth_epoch60.pt"
+        model_path = "diffusion_bound_regression/MID_from_git/experiments/my_config_eval/eth_epoch60.pt"
+        #model_path = "eth_epoch60.pt"
         config_path="diffusion_bound_regression/MID_from_git/configs/my_config_eval.yaml"
         with open(config_path) as f:
             config = yaml.safe_load(f)
             config = EasyDict(config)
         config["dataset"] = "eth"
+
+        #print("HEEEEEEE")
 
         #instanciate data preprocessor
         self.data_prec = DataPreproc(node_type = node_type, dt = dt, t_clean = t_clean, t_noise = t_noise)
@@ -493,9 +495,9 @@ class SmoothBounds():
         """
 
         observation = observed
-        batch, nodes, timesteps_o = data_prec.preproc_scene_only_obs(observation)
+        batch, nodes, timesteps_o = self.data_prec.preproc_scene_only_obs(observation)
 
-        observation_clean = data_prec.discard_nodes(observation, nodes) #discard ?? 
+        observation_clean = self.data_prec.discard_nodes(observation, nodes) #discard ?? 
 
 
     def eval_eta(self, g, l, u):

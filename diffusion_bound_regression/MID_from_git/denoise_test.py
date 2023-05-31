@@ -19,7 +19,6 @@ from diffusion_bound_regression.MID_from_git.models.trajectron import Trajectron
 from diffusion_bound_regression.MID_from_git.models.autoencoder import AutoEncoder
 from diffusion_bound_regression.MID_from_git.dataset import EnvironmentDataset, collate, get_node_timestep_data#get_timesteps_data
 
-
 ### other 
 # import os
 # import argparse
@@ -561,8 +560,13 @@ class DiffDenoiser():
         self.hyperparams['enc_rnn_dim_future'] = self.config.encoder_dim//2
         # REGISTAR load for eval
         self.registrar = ModelRegistrar(model_path, self.device) #path correct ?? 
+        breakpoint()
+        print("olaaaa")
 
         breakpoint()
+        import sys
+        #sys.path.append('diffusion_bound_regression/MID_from_git/experiments/my_config_eval/')
+        sys.path.append('C:/Users/thiba/Desktop/Projet_VITA/code/my_s_aware_prediction_VITA/s_aware_prediction_VITA/diffusion_bound_regression/MID_from_git/models')
         #from pathlib import Path
         # str_path = "my_path"
         # path = Path(str_path)
@@ -571,6 +575,7 @@ class DiffDenoiser():
         #model_path = os.path.join(self.model_dir, f"{self.config.dataset}_epoch{self.config.eval_at}.pt")
         checkpoint = torch.load(model_path, map_location = "cpu")
         breakpoint()
+        
         self.registrar.load_models(checkpoint['encoder'])
 
         #ENCODER load for eval
