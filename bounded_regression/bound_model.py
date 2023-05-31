@@ -16,7 +16,7 @@ from trajnetbaselines.lstm.run import draw_one_tensor
 from trajnetbaselines.lstm.utils import seperate_xy, is_stationary, calc_fde_ade
 
 #from diffusion
-from  diffusion_bound_regression.MID_from_git.denoise_test import DataPreproc
+from  diffusion_bound_regression.MID_from_git.denoise_test import DataPreproc, DiffDenoiser
 
 
 class SmoothBounds():
@@ -208,13 +208,19 @@ class SmoothBounds():
             #define objects
             #self.device is cpu
             node_type = "PEDESTRIAN"
-            dt = 0.4                
+            dt = 0.4
+            t_clean = 6             
             t_noise = 3
-            t_obs = 6
+            
 
             time_before = time.perf_counter()
+            
+            data_prec = DataPreproc(node_type = node_type, dt = dt, t_clean = t_clean, t_noise = t_noise)
             breakpoint()
+            dd = DiffDenoiser(config = config, model_path = model_path, dt = dt, node_type = node_type, device=device, beta_T=beta_T)
 
+
+            breakpoint()
 
 
 

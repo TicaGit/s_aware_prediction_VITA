@@ -8,14 +8,14 @@ import dill
 import matplotlib.pyplot as plt
 import time
 
-from environment import Environment, Scene, Node, derivative_of
+from .environment import Environment, Scene, Node, derivative_of
 
-from models.encoders.dynamics.single_integrator import SingleIntegrator
+from .models.encoders.dynamics.single_integrator import SingleIntegrator
 
-from utils.model_registrar import ModelRegistrar
-from models.trajectron import Trajectron
-from models.autoencoder import AutoEncoder
-from dataset import EnvironmentDataset, collate, get_node_timestep_data#get_timesteps_data
+from .utils.model_registrar import ModelRegistrar
+from .models.trajectron import Trajectron
+from .models.autoencoder import AutoEncoder
+from .dataset import EnvironmentDataset, collate, get_node_timestep_data#get_timesteps_data
 
 OBS_TENSOR = torch.Tensor([[[7.0400, 2.2700],
          [7.4500, 1.6900]],

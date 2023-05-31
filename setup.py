@@ -7,7 +7,9 @@ setup(
         'trajnetbaselines.lstm',
         'random_smooth',
         'evaluator',
-        'bounded_regression'
+        'bounded_regression',
+        'diffusion_bound_regression',
+        'diffusion_bound_regression.MID_from_git.environment',
     ],
     install_requires=[
         'numpy',
