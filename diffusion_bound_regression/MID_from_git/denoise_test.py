@@ -21,7 +21,6 @@ from diffusion_bound_regression.MID_from_git.dataset import EnvironmentDataset, 
 
 #from diffusion_bound_regression.MID_from_git.models.encoders.components.additive_attention import AdditiveAttention
 import diffusion_bound_regression.MID_from_git.models as models
-
 ### other 
 # import os
 # import argparse
@@ -44,6 +43,37 @@ import diffusion_bound_regression.MID_from_git.models as models
 # from .utils.model_registrar import ModelRegistrar
 # from .utils.trajectron_hypers import get_traj_hypers
 # import diffusion_bound_regression.MID_from_git.evaluation
+
+
+
+#trajectron
+import torch
+import numpy as np
+from diffusion_bound_regression.MID_from_git.models.encoders.mgcvae import MultimodalGenerativeCVAE
+#from model.dataset import get_timesteps_data, restore
+# import torch
+# import numpy as np
+import collections.abc
+from torch.utils.data._utils.collate import default_collate
+import dill
+container_abcs = collections.abc
+
+
+#mcvae
+import warnings
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from diffusion_bound_regression.MID_from_git.models.encoders.components import *
+from diffusion_bound_regression.MID_from_git.models.encoders.model_utils import *
+#import diffusion_bound_regression.MID_from_git.models.encoders.dynamics as dynamic_module #works
+from diffusion_bound_regression.MID_from_git.models.encoders import dynamics as dynamic_module #looks better
+from diffusion_bound_regression.MID_from_git.environment.scene_graph import DirectedEdge
+from .utils import *
+import pdb
+
+#me
+from diffusion_bound_regression.MID_from_git.models.encoders.components.additive_attention import *
 
 OBS_TENSOR = torch.Tensor([[[7.0400, 2.2700],
          [7.4500, 1.6900]],
@@ -577,7 +607,7 @@ class DiffDenoiser():
         #model_path = "./experiments/my_config_eval/eth_epoch60.pt"
         #import os
         #model_path = os.path.join(self.model_dir, f"{self.config.dataset}_epoch{self.config.eval_at}.pt")
-        
+        from diffusion_bound_regression.MID_from_git.models.encoders.components.additive_attention import AdditiveAttention 
         checkpoint = torch.load(model_path, map_location = "cpu")
         breakpoint()
         

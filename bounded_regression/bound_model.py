@@ -20,6 +20,10 @@ from trajnetbaselines.lstm.utils import seperate_xy, is_stationary, calc_fde_ade
 #from diffusion
 from  diffusion_bound_regression.MID_from_git.denoise_test import DataPreproc, DiffDenoiser
 
+import diffusion_bound_regression.MID_from_git.models as models
+
+from diffusion_bound_regression.MID_from_git.models.encoders.components.additive_attention import AdditiveAttention
+
 
 class SmoothBounds():
     def __init__(self, 

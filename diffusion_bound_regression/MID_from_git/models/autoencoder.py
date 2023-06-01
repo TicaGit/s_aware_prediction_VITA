@@ -3,8 +3,8 @@ from torch.nn import Module
 import torch.nn as nn
 from .encoders.trajectron import Trajectron
 from .encoders import dynamics as dynamic_module
-# import models.diffusion as diffusion #could be absolute
-from ..models import diffusion as diffusion
+import diffusion_bound_regression.MID_from_git.models.diffusion as diffusion #could be absolute
+#from ..models import diffusion as diffusion
 from ..models.diffusion import DiffusionTraj,VarianceSchedule
 import pdb
 

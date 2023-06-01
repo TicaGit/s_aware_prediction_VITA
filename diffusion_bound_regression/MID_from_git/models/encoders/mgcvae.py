@@ -2,11 +2,11 @@ import warnings
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from .components import *
-from .model_utils import *
+from diffusion_bound_regression.MID_from_git.models.encoders.components import *
+from diffusion_bound_regression.MID_from_git.models.encoders.model_utils import *
 #import diffusion_bound_regression.MID_from_git.models.encoders.dynamics as dynamic_module #works
-from ...models.encoders import dynamics as dynamic_module #looks better
-from ...environment.scene_graph import DirectedEdge
+from diffusion_bound_regression.MID_from_git.models.encoders import dynamics as dynamic_module #looks better
+from diffusion_bound_regression.MID_from_git.environment.scene_graph import DirectedEdge
 from .utils import *
 import pdb
 
