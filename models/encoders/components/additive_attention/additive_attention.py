@@ -1,0 +1,3 @@
+import diffusion_bound_regression.MID_from_git.models.encoders.components.additive_attention as additive_attention_modules
+
+additive_attention = additive_attention_modules

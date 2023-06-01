@@ -20,7 +20,7 @@ from diffusion_bound_regression.MID_from_git.models.autoencoder import AutoEncod
 from diffusion_bound_regression.MID_from_git.dataset import EnvironmentDataset, collate, get_node_timestep_data#get_timesteps_data
 
 #from diffusion_bound_regression.MID_from_git.models.encoders.components.additive_attention import AdditiveAttention
-import diffusion_bound_regression.MID_from_git.models as models
+
 ### other 
 # import os
 # import argparse
@@ -43,6 +43,43 @@ import diffusion_bound_regression.MID_from_git.models as models
 # from .utils.model_registrar import ModelRegistrar
 # from .utils.trajectron_hypers import get_traj_hypers
 # import diffusion_bound_regression.MID_from_git.evaluation
+
+import diffusion_bound_regression.MID_from_git.models as models
+#copy from training
+# import diffusion_bound_regression.MID_from_git.models
+# import models.autoencoder
+# import models.encoders
+# import models.encoders.mgcvae
+# import models.encoders.components
+# import models.encoders.components.discrete_latent 
+# import models.encoders.components.gmm2d
+# import models.encoders.components.map_encoder
+# import models.encoders.components.additive_attention 
+# import models.encoders.components.n_pair_loss
+# import models.encoders.model_utils
+# import models.encoders.dynamics
+# import models.encoders.dynamics.dynamic
+# import models.encoders.dynamics.single_integrator
+# print("models loaded")
+# import sys
+# print(sys.modules.keys())
+# breakpoint()
+
+# models
+# models.autoencoder
+# models.encoders
+# models.encoders.mgcvae
+# models.encoders.components
+# models.encoders.components.discrete_latent 
+# models.encoders.components.gmm2d
+# models.encoders.components.map_encoder
+# models.encoders.components.additive_attention 
+# models.encoders.components.n_pair_loss
+# models.encoders.model_utils
+# models.encoders.dynamics
+# models.encoders.dynamics.dynamic
+# models.encoders.dynamics.single_integrator
+
 
 
 
@@ -74,6 +111,29 @@ import pdb
 
 #me
 from diffusion_bound_regression.MID_from_git.models.encoders.components.additive_attention import *
+
+
+# from models
+from models import models
+from models.encoders import encoders
+import models.encoders.components
+import models.encoders.components.additive_attention
+from models.encoders.components.additive_attention import additive_attention
+
+# from environment
+import environment.environment 
+import environment 
+from environment.environment import Environment
+from environment.scene import Scene
+from environment.node import Node
+from environment.node_type import NodeType, NodeTypeEnum
+from environment.data_structures import DoubleHeaderNumpyArray
+
+
+
+# import sys
+# print(sys.modules.keys())
+#breakpoint()
 
 OBS_TENSOR = torch.Tensor([[[7.0400, 2.2700],
          [7.4500, 1.6900]],
@@ -596,7 +656,7 @@ class DiffDenoiser():
 
         print("olaaaa")
 
-        breakpoint()
+        #breakpoint()
         #import sys
         #sys.path.append('diffusion_bound_regression/MID_from_git/experiments/my_config_eval/')
         #sys.path.append('C:/Users/thiba/Desktop/Projet_VITA/code/my_s_aware_prediction_VITA/s_aware_prediction_VITA/diffusion_bound_regression/MID_from_git/models')
@@ -609,14 +669,17 @@ class DiffDenoiser():
         #model_path = os.path.join(self.model_dir, f"{self.config.dataset}_epoch{self.config.eval_at}.pt")
         from diffusion_bound_regression.MID_from_git.models.encoders.components.additive_attention import AdditiveAttention 
         checkpoint = torch.load(model_path, map_location = "cpu")
-        breakpoint()
-        
+        # breakpoint()
+        # ckpt_reg = torch.load("registar_dict.pt")
+        # ckpt_reg = torch.load("ddpm_dict.pt")
+        #breakpoint()
+
         self.registrar.load_models(checkpoint['encoder'])
 
         #ENCODER load for eval
         self.encoder = Trajectron(self.registrar, self.hyperparams, self.device)
 
-        self.train_data_path = "processed_data/eth_train.pkl"
+        self.train_data_path = "diffusion_bound_regression/MID_from_git/processed_data/eth_train.pkl"
         with open(self.train_data_path, 'rb') as f:
             self.train_env = dill.load(f, encoding='latin1')
         self.encoder.set_environment(self.train_env)

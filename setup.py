@@ -13,6 +13,7 @@ setup(
         'diffusion_bound_regression.MID_from_git.models',
         'diffusion_bound_regression.MID_from_git.utils',
         'diffusion_bound_regression.MID_from_git.models.encoders.components',
+        'models'
     ],
     install_requires=[
         'numpy',

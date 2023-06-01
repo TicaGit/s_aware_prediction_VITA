@@ -71,6 +71,7 @@ class SmoothBounds():
         #instanciate diffusion denoiser object
         self.dd = DiffDenoiser(config = config, model_path = model_path, dt = dt, node_type = node_type,
                                device=self.device)
+        breakpoint()
 
     def preprocess_scenes(self, scenes: list, goals:list, remove_static:bool = False):
         """
@@ -238,7 +239,6 @@ class SmoothBounds():
         with torch.no_grad():
             #necessary to put first iter here 
             if diffusion:
-                breakpoint()
                 outputs_perturbed, noise = self._sample_noise_diffusion(observed.detach().clone(), goal, batch_split)
             else:
                 outputs_perturbed, noise = self._sample_noise(observed.detach().clone(), goal, batch_split)
@@ -497,11 +497,13 @@ class SmoothBounds():
         """
         produce a output from a noisy version on input, but denoise it with diffusion
         """
-
+        breakpoint()
         observation = observed
         batch, nodes, timesteps_o = self.data_prec.preproc_scene_only_obs(observation)
 
         observation_clean = self.data_prec.discard_nodes(observation, nodes) #discard ?? 
+
+        breakpoint()
 
 
     def eval_eta(self, g, l, u):

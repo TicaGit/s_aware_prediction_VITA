@@ -107,6 +107,10 @@ class MID():
                     'encoder': self.registrar.model_dict,
                     'ddpm': self.model.state_dict()
                  }
+                
+                import sys
+                print(sys.modules.keys())
+                breakpoint()
                 torch.save(checkpoint, osp.join(self.model_dir, f"{self.config.dataset}_epoch{epoch}.pt"))
 
                 self.model.train()
