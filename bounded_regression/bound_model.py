@@ -64,14 +64,15 @@ class SmoothBounds():
             config = EasyDict(config)
         config["dataset"] = "eth"
 
-        #print("HEEEEEEE")
-
+        self.t_clean = t_clean
+        self.t_noise = t_noise
+        
         #instanciate data preprocessor
         self.data_prec = DataPreproc(node_type = node_type, dt = dt, t_clean = t_clean, t_noise = t_noise)
         #instanciate diffusion denoiser object
         self.dd = DiffDenoiser(config = config, model_path = model_path, dt = dt, node_type = node_type,
                                device=self.device)
-        breakpoint()
+        #breakpoint()
 
     def preprocess_scenes(self, scenes: list, goals:list, remove_static:bool = False):
         """
@@ -159,6 +160,7 @@ class SmoothBounds():
             mean_pred, bounds = self.compute_bounds_scene(observed, scene_goal, batch_split)
 
             #HERE STICHING TO MAKE LEN == 21
+            #breakpoint()
             mean_pred = torch.concat((observed, mean_pred[-self.pred_length:]))
             #breakpoint()
 
@@ -272,7 +274,10 @@ class SmoothBounds():
 
             for n in range(num - 1):
                 #predict output
-                outputs_perturbed, noise = self._sample_noise(observed.detach().clone(), goal, batch_split)
+                if diffusion:
+                    outputs_perturbed, noise = self._sample_noise_diffusion(observed.detach().clone(), goal, batch_split)
+                else:
+                    outputs_perturbed, noise = self._sample_noise(observed.detach().clone(), goal, batch_split)
 
                 #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
                 #outputs_perturbed = torch.cat((observed + noise, outputs_perturbed[-self.pred_length:]))
@@ -493,17 +498,82 @@ class SmoothBounds():
             )
             return outputs_perturbed, noise   
         
-    def _sample_noise_diffusion(self, observed: torch.tensor, goals: torch.tensor, batch_split):
+    def _sample_noise_diffusion(self, observed: torch.Tensor, goals: torch.Tensor, batch_split):
         """
         produce a output from a noisy version on input, but denoise it with diffusion
         """
-        breakpoint()
-        observation = observed
+        observation = observed.clone()
+
+        #get batch data and context
         batch, nodes, timesteps_o = self.data_prec.preproc_scene_only_obs(observation)
+        context = self.dd.get_context(batch)
 
-        observation_clean = self.data_prec.discard_nodes(observation, nodes) #discard ?? 
+        #add noise on all the agent, only the t_noise=3 last steps
+        last_3_obs = observation[-self.t_noise:,:,:].clone().detach()
+        noisy_last_3_obs, t_coresp_noise = self.dd.noise_with_diff(last_3_obs, self.sigma)
 
-        breakpoint()
+        #some nodes are discarded by the batch, we can't denoise them
+        noisy_last_3_obs_discard, present_node = self.data_prec.discard_nodes(noisy_last_3_obs, nodes) #discard 
+  
+        #denoise them
+        denoised_last_3_obs = self.dd.denoise_trough_vel(t_coresp_noise, noisy_last_3_obs_discard, context, sampling="ddim").cpu().detach()
+
+        #put back the one that were denoised
+        inserted = 0
+        for i in range(noisy_last_3_obs.shape[1]): #num agents
+            if str(i) in present_node:
+                noisy_last_3_obs[:,i,:] = denoised_last_3_obs[:,inserted,:]
+                inserted += 1
+
+        #stich the t_clean=6 first and the rest
+        noisy_observation = torch.concat((observation[:self.t_clean,:,:], noisy_last_3_obs), dim=0)
+
+        #run the model
+        _, outputs_perturbed = self.model(
+            noisy_observation, goals, batch_split, n_predict=self.pred_length
+        )
+
+        outputs_stiched = torch.concat((noisy_observation[:self._obs_length,:,:], outputs_perturbed[-self.pred_length:,:,:]))
+
+
+        #breakpoint()
+        #just print
+        do_print = False
+        if do_print:
+            #FALSE
+            nag = noisy_last_3_obs.shape[1]
+            for i, i_ag in enumerate(range(nag)):
+                #obs_i = observation_clean[:,i_ag,:]
+                obs_i = observation[:(self.t_clean + 1),i_ag,:]
+                last_3_obs_i = last_3_obs[:,i_ag,:]
+                noisy_3_obs_i = noisy_last_3_obs[:,i_ag,:]
+                outputs_stiched_i = outputs_stiched[:,i_ag,:]
+                #denoised_3_obs_i = denoised_last_3_obs[:,i_ag,:]
+                #denoised_3_obs_i_s1 = denoised_last_3_obs_stride_1[:,i_ag,:]
+
+                if i == 0:
+                    #plt.plot(obs_i[:,0], obs_i[:,1], c="r", label="real obs")
+                    plt.plot(obs_i[:,0], obs_i[:,1], c="r", label="untouched")
+                    plt.plot(last_3_obs_i[:,0], last_3_obs_i[:,1], c="y", label="will be noised")
+                    plt.plot(noisy_3_obs_i[:,0], noisy_3_obs_i[:,1], c="g", label="noised")
+                    plt.plot(outputs_stiched_i[:,0], outputs_stiched_i[:,1], c="cyan", label="denoise (only one step)")
+                    # plt.plot(denoised_3_obs_i[:,0], denoised_3_obs_i[:,1], c="cyan", label="denoise (only one step)")
+                    #plt.plot(denoised_3_obs_i_s1[:,0], denoised_3_obs_i_s1[:,1], c="b", label="many steps (1 by 1)")
+                else:
+                    #plt.plot(obs_i[:,0], obs_i[:,1], c="r")
+                    plt.plot(obs_i[:,0], obs_i[:,1], c="r")
+                    plt.plot(last_3_obs_i[:,0], last_3_obs_i[:,1], c="y")
+                    plt.plot(noisy_3_obs_i[:,0], noisy_3_obs_i[:,1], c="g")
+                    plt.plot(outputs_stiched_i[:,0], outputs_stiched_i[:,1], c="cyan")
+                    # plt.plot(denoised_3_obs_i[:,0], denoised_3_obs_i[:,1], c="cyan")
+                    #plt.plot(denoised_3_obs_i_s1[:,0], denoised_3_obs_i_s1[:,1], c="b")
+            
+            plt.legend()
+            plt.savefig('plot_diffusion_denoise.png')
+
+        #breakpoint()
+
+        return outputs_stiched, _
 
 
     def eval_eta(self, g, l, u):

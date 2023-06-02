@@ -260,7 +260,7 @@ def main(epochs=10):
         for sigma in sigmas:
             print(f"sigma: {sigma}, r: {r}")
             #predict bounds
-            filename = "out_bounds/on_sbatch_dpool_med2/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
+            filename = "out_bounds/on_sbatch_dpool_diff/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
             #filename = "out_bounds/on_sbatch_satt/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
             all_mean_pred, all_bounds, all_real_pred = smth_bounds_model.compute_bounds_all(
                 all_data, filename, sigma, n0, r
@@ -276,7 +276,9 @@ def main(epochs=10):
                     elif function == "median1": 
                         filedraw = "out_bounds/med_bb_sig_" + str(sigma) + "r_" + str(r) + "sc_" + str(all_data[j][0]) + "num_" + str(j) + '.png'
                     elif function == "median2": 
-                        filedraw = "out_bounds/med2_bb_sig_" + str(sigma) + "r_" + str(r) + "sc_" + str(all_data[j][0]) + "num_" + str(j) + '.png'      
+                        filedraw = "out_bounds/med2_bb_sig_" + str(sigma) + "r_" + str(r) + "sc_" + str(all_data[j][0]) + "num_" + str(j) + '.png'  
+                    elif function == "diffusion": 
+                        filedraw = "out_bounds/diff_bb_sig_" + str(sigma) + "r_" + str(r) + "sc_" + str(all_data[j][0]) + "num_" + str(j) + '.png'        
                     draw_with_bounds(filedraw, m_pred, b[0], b[1], r_pred)
 
     

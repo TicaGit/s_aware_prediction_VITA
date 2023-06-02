@@ -631,9 +631,8 @@ class DataPreproc():
 
         keep = []
         num_ag = observation.shape[1]
-        keep = [str(i) in present_nodes for i in range(num_ag)]
-
-        return observation[:,keep,:]
+        keep = [str(i) in present_nodes for i in range(num_ag)] #bolean list
+        return observation[:,keep,:], present_nodes
 
 
 class DiffDenoiser():
