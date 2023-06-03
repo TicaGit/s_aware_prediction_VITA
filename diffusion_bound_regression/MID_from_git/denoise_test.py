@@ -331,9 +331,9 @@ HYPERS = {   'batch_size': 256,
     'learning_rate_style': 'exp',
     'min_learning_rate': 1e-05,
     'learning_decay_rate': 0.9999,
-    'prediction_horizon': 12,
+    'prediction_horizon': 3,
     'minimum_history_length': 1,
-    'maximum_history_length': 7,
+    'maximum_history_length': 5,
     'map_encoder':
         {'PEDESTRIAN':
             {'heading_state_index': 6,
