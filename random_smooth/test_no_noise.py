@@ -307,7 +307,7 @@ def main(epochs=10):
                                 scene_goal, 
                                 batch_split, 
                                 n_predict=pred_length)
-        #breakpoint()
+        breakpoint()
 
         # model_pred_orig = model_pred.clone().detach()
 
