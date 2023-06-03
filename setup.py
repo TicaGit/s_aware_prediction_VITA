@@ -12,6 +12,7 @@ setup(
         'diffusion_bound_regression.MID_from_git.environment',
         'diffusion_bound_regression.MID_from_git.models',
         'diffusion_bound_regression.MID_from_git.utils',
+        'diffusion_bound_regression.MID_from_git.dataset',
         'diffusion_bound_regression.MID_from_git.models.encoders.components',
         'diffusion_bound_regression.MID_from_git.models.encoders.dynamics',
         'diffusion_bound_regression.MID_from_git.models.encoders',

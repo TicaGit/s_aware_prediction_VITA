@@ -8,110 +8,20 @@ import dill
 import matplotlib.pyplot as plt
 import time
 
+from diffusion_bound_regression.MID_from_git.utils.model_registrar import ModelRegistrar
+from diffusion_bound_regression.MID_from_git.dataset import EnvironmentDataset, collate, get_node_timestep_data
 from diffusion_bound_regression.MID_from_git.environment import Environment, Scene, Node, derivative_of
 
-from diffusion_bound_regression.MID_from_git.models.encoders.dynamics.single_integrator import SingleIntegrator
-
-#diffusion_bound_regression.MID_from_git
-from diffusion_bound_regression.MID_from_git.utils.model_registrar import ModelRegistrar #but for torch.load() -> *** ModuleNotFoundError: No module named 'models'
-#from diffusion_bound_regression.MID_from_git.utils.model_registrar import ModelRegistrar
 from diffusion_bound_regression.MID_from_git.models.trajectron import Trajectron
 from diffusion_bound_regression.MID_from_git.models.autoencoder import AutoEncoder
-from diffusion_bound_regression.MID_from_git.dataset import EnvironmentDataset, collate, get_node_timestep_data#get_timesteps_data
-
-#from diffusion_bound_regression.MID_from_git.models.encoders.components.additive_attention import AdditiveAttention
-
-### other 
-# import os
-# import argparse
-# import torch
-# import dill
-# import pdb
-# import numpy as np
-# import os.path as osp
-# import logging
-# import time
-# from torch import nn, optim, utils
-# import torch.nn as nn
-# #from tensorboardX import SummaryWriter
-# from tqdm.auto import tqdm
-# import pickle
-
-# from .dataset import EnvironmentDataset, collate, get_timesteps_data, restore
-# from .models.autoencoder import AutoEncoder
-# from .models.trajectron import Trajectron
-# from .utils.model_registrar import ModelRegistrar
-# from .utils.trajectron_hypers import get_traj_hypers
-# import diffusion_bound_regression.MID_from_git.evaluation
 
 import diffusion_bound_regression.MID_from_git.models as models
-#copy from training
-# import diffusion_bound_regression.MID_from_git.models
-# import models.autoencoder
-# import models.encoders
-# import models.encoders.mgcvae
-# import models.encoders.components
-# import models.encoders.components.discrete_latent 
-# import models.encoders.components.gmm2d
-# import models.encoders.components.map_encoder
-# import models.encoders.components.additive_attention 
-# import models.encoders.components.n_pair_loss
-# import models.encoders.model_utils
-# import models.encoders.dynamics
-# import models.encoders.dynamics.dynamic
-# import models.encoders.dynamics.single_integrator
-# print("models loaded")
-# import sys
-# print(sys.modules.keys())
-# breakpoint()
-
-# models
-# models.autoencoder
-# models.encoders
-# models.encoders.mgcvae
-# models.encoders.components
-# models.encoders.components.discrete_latent 
-# models.encoders.components.gmm2d
-# models.encoders.components.map_encoder
-# models.encoders.components.additive_attention 
-# models.encoders.components.n_pair_loss
-# models.encoders.model_utils
-# models.encoders.dynamics
-# models.encoders.dynamics.dynamic
-# models.encoders.dynamics.single_integrator
-
-
-
-
-#trajectron
-import torch
-import numpy as np
+from diffusion_bound_regression.MID_from_git.models.encoders.dynamics.single_integrator import SingleIntegrator
 from diffusion_bound_regression.MID_from_git.models.encoders.mgcvae import MultimodalGenerativeCVAE
-#from model.dataset import get_timesteps_data, restore
-# import torch
-# import numpy as np
-import collections.abc
-from torch.utils.data._utils.collate import default_collate
-import dill
-container_abcs = collections.abc
 
 
-#mcvae
-import warnings
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from diffusion_bound_regression.MID_from_git.models.encoders.components import *
-from diffusion_bound_regression.MID_from_git.models.encoders.model_utils import *
-#import diffusion_bound_regression.MID_from_git.models.encoders.dynamics as dynamic_module #works
-from diffusion_bound_regression.MID_from_git.models.encoders import dynamics as dynamic_module #looks better
-from diffusion_bound_regression.MID_from_git.environment.scene_graph import DirectedEdge
-from .utils import *
-import pdb
-
-#me
-from diffusion_bound_regression.MID_from_git.models.encoders.components.additive_attention import *
-
+# to download the models of the diffusion process, I had to recreate the folder "architecture", because they were
+# saved with torch.save (see https://github.com/pytorch/pytorch/issues/3678 to see the bug)
 
 # from models
 from models import models
@@ -131,9 +41,7 @@ from environment.data_structures import DoubleHeaderNumpyArray
 
 
 
-# import sys
-# print(sys.modules.keys())
-#breakpoint()
+
 
 OBS_TENSOR = torch.Tensor([[[7.0400, 2.2700],
          [7.4500, 1.6900]],
@@ -309,6 +217,7 @@ RAW_PRED_SLSTM = torch.Tensor([[[ 5.8722,  2.4143],
         [[-5.4542,  5.1795],
          [-5.5027,  4.2783]]])
 
+#copied from their files
 standardization = {
     'PEDESTRIAN': {
         'position': {
@@ -326,6 +235,7 @@ standardization = {
     }
 }
 
+#copied from their files
 HYPERS = {   'batch_size': 256,
     'grad_clip': 1.0,
     'learning_rate_style': 'exp',
@@ -413,101 +323,52 @@ HYPERS = {   'batch_size': 256,
     'tao': 0.4}
 
 class DataPreproc():
+    """
+    Class to convert the data to the right format. Because we use juste a scene TxNx2 and the diffusion process needs
+    many other object, we need a class to convert everything.
+    
+    """
     def __init__(self, node_type = "PEDESTRIAN", dt = 0.4, t_clean = 6, t_noise = 3, standardization = standardization):
         """
-        scene : T x N_ag x 2 = 21 x Nag x 2
+        params:
+        -------
+
+        dt(float) : time between 2 timestep
+        t_clean(int) : number of timestep of the observation trajs that will not be noised
+        t_noise(int) : number of timestep of the observation trajs that will be noised
         """
         self.t_clean = t_clean
         self.t_noise = t_noise
 
-        self.dt = dt                ## ?????
+        self.dt = dt                
 
         self.node_type = node_type
 
         self.env = Environment(node_type_list=['PEDESTRIAN'], standardization=standardization)
         attention_radius = dict()
-        attention_radius[(self.env.NodeType.PEDESTRIAN, self.env.NodeType.PEDESTRIAN)] = 3.0        ##???
+        attention_radius[(self.env.NodeType.PEDESTRIAN, self.env.NodeType.PEDESTRIAN)] = 3.0
         self.env.attention_radius = attention_radius
 
         self.data_columns = pd.MultiIndex.from_product([['position', 'velocity', 'acceleration'], ['x', 'y']])
 
-    # def preproc_scene(self, scene_tensor:torch.Tensor):
-    #     """
-    #     params:
-    #     -------
-
-    #     scene : our format : T x N_ag x 2 = 21 x Nag x 2
-
-    #     returns:
-    #     --------
-
-    #     batch : sea
-    #     nodes : 
-    #     timestep : 
-    #     """
-    #     obs_sc = scene_tensor.clone().numpy() #scene_tensor[:self.t_obs].numpy()
-
-    #     t_tot = scene_tensor.shape[0]
-    #     n_agents = scene_tensor.shape[1]
-
-    #     scene = Scene(timesteps=self.t_obs+1, dt=self.dt, name="scene_custom", aug_func=None)
-
-    #     for i_ag in range(n_agents):
-    #         node = obs_sc[:,i_ag,:] #node == agent, now is Tx2
-
-    #         breakpoint()
-    #         new_first_idx = 0 #int(~node.isnan()).nonzero() #node_df['frame_id'].iloc[0] ##stil TODO ? all 0?, relative ? 
-
-    #         x = node[:, 0]
-    #         y = node[:, 1]
-    #         vx = derivative_of(x, self.dt)
-    #         vy = derivative_of(y, self.dt)
-    #         ax = derivative_of(vx, self.dt)
-    #         ay = derivative_of(vy, self.dt)
-
-    #         data_dict = {('position', 'x'): x,
-    #                      ('position', 'y'): y,
-    #                      ('velocity', 'x'): vx,
-    #                      ('velocity', 'y'): vy,
-    #                      ('acceleration', 'x'): ax,
-    #                      ('acceleration', 'y'): ay}
-        
-    #         node_data = pd.DataFrame(data_dict, columns=self.data_columns)
-    #         node = Node(node_type=self.env.NodeType.PEDESTRIAN, node_id=str(i_ag), data=node_data)
-    #         node.first_timestep = new_first_idx
-
-    #         scene.nodes.append(node)
-
-    #     self.env.scenes = [scene] #scenes is a list of 1 scene
-
-    #     #breakpoint()
-    #     timesteps = np.arange(0,self.t_obs)
-    #     ht = 9-1 #no constrain on history or future
-    #     ft = 12
-    #     batch = get_timesteps_data(env=self.env, scene=scene, t=timesteps, node_type=self.node_type, state=HYPERS['state'],
-    #             pred_state=HYPERS['pred_state'], edge_types=self.env.get_edge_types(),
-    #             min_ht=ht, max_ht=ht, min_ft=ft, max_ft=ft, hyperparams=HYPERS)
-    #     #breakpoint()
-    #     return batch[0], batch[1], batch[2]
-
 
     def preproc_scene_only_obs(self, scene_tensor:torch.Tensor):
             """
+            Takes a scene (in the tensor format) and produced a batch understood by the diffusion module.
+
             params:
             -------
-
-            scene : our format : Tobs x N_ag x 2 = 9 x Nag x 2   #only obs
+            scene (torch.Tensor) :in our format, Tobs x N_ag x 2 = 9 x Nag x 2   # 9 = Tobs
 
             returns:
             --------
 
-            batch : sea
-            nodes : 
-            timestep : 
+            batch(list) : contains infos of all agents position, velocity, accelaration and relative distance
+            nodes(list) : contains the ids of the nodes that have sufficient informations to be denoised
+            timesteps(list) : contains the first where a nodes appears in the scene
             """
-            obs_sc = scene_tensor.clone().numpy() #scene_tensor[:self.t_obs].numpy()
+            obs_sc = scene_tensor.clone().numpy() 
 
-            t_tot = scene_tensor.shape[0]
             n_agents = scene_tensor.shape[1]
 
             #scene should contain everything : all timesteps
@@ -543,24 +404,21 @@ class DataPreproc():
                 scene.nodes.append(node)
 
             self.env.scenes = [scene] #scenes is a list of 1 scene
-            #breakpoint()
 
-            #breakpoint()
-            timesteps = np.arange(0,self.t_clean)
-            max_ht = self.t_clean-1 #6 first known
-            min_ht = 1-1 #need to have a least 1 point ## 1-1 works ??'
-            ft = self.t_noise     #we require that the 3 data are known
-            #breakpoint() #voir comment nan sont geré ? node supr a cause de ht/ft ? 
+            timesteps = np.arange(0,self.t_clean) #only encode the clean traj -> will be used to denoise
+            max_ht = self.t_clean-1 #history : 6 first known
+            min_ht = 1-1 #history : need to have a least 1 point
+            ft = self.t_noise     #future : we require that the 3 data are known
+
             batch = self.get_timesteps_data_custom(env=self.env, scene=scene, t=timesteps, node_type=self.node_type, state=HYPERS['state'],
                     pred_state=HYPERS['pred_state'], edge_types=self.env.get_edge_types(),
                     min_ht=min_ht, max_ht=max_ht, min_ft=ft, max_ft=ft, hyperparams=HYPERS)
-            #breakpoint()
             return batch[0], batch[1], batch[2]
 
     
 
 
-    #OVERRIDDING A FUNCTION
+    #OVERRIDDING A FUNCTION : discard node duplicates
     def get_timesteps_data_custom(self, env, scene, t, node_type, state, pred_state,
                         edge_types, min_ht, max_ht, min_ft, max_ft, hyperparams):
         """
@@ -580,14 +438,13 @@ class DataPreproc():
         :param hyperparams: Model hyperparameters
         :return:
         """
-        #breakpoint()
         nodes_per_ts = scene.present_nodes(t,
                                         type=node_type,
                                         min_history_timesteps=min_ht,
                                         min_future_timesteps=max_ft,
                                         return_robot=not hyperparams['incl_robot_node'])
 
-        #only keep last timestep for each agent (avoid duplicates)
+        #NEW : only keep last timestep for each agent (avoid duplicates)
 
         new_nodes_per_ts = {} #empty dict
         used_agents = set() #set with wich agent have already been seen
@@ -602,11 +459,10 @@ class DataPreproc():
         
         #back in chrono order
         nodes_per_ts = dict(sorted(new_nodes_per_ts.items()))
-        #breakpoint()
+
         batch = list()
         nodes = list()
         out_timesteps = list()
-        #breakpoint()
         for timestep in nodes_per_ts.keys():
                 scene_graph = scene.get_scene_graph(timestep,
                                                     env.attention_radius,
@@ -625,6 +481,9 @@ class DataPreproc():
 
 
     def discard_nodes(self, observation, nodes):
+        """
+        Look at the present nodes (present in batch), in return their coresponding trajectories
+        """
         present_nodes = set()
         for node in nodes:
             present_nodes.add(node.id)
@@ -636,14 +495,17 @@ class DataPreproc():
 
 
 class DiffDenoiser():
-    def __init__(self, config, model_path, dt=0.4, node_type = "PEDESTRIAN", device = torch.device("cuda"), beta_T = 0.05):
+    """
+    Object that implements the diffusion noising-denoising process
+    """
+    def __init__(self, config, model_path, dt=0.4, node_type = "PEDESTRIAN", device = torch.device("cuda"),
+                beta_T = 0.05, train_data_path = "diffusion_bound_regression/MID_from_git/processed_data/eth_train.pkl"):
         self.device = device
         self.config = config
 
         self.dt = dt
         self.node_type = node_type
 
-        #breakpoint()
 
         self.hyperparams = HYPERS
         self.hyperparams['enc_rnn_dim_edge'] = self.config.encoder_dim//2
@@ -651,34 +513,18 @@ class DiffDenoiser():
         self.hyperparams['enc_rnn_dim_history'] = self.config.encoder_dim//2
         self.hyperparams['enc_rnn_dim_future'] = self.config.encoder_dim//2
         # REGISTAR load for eval
-        self.registrar = ModelRegistrar(model_path, self.device) #path correct ?? 
+        self.registrar = ModelRegistrar(model_path, self.device)
 
-        print("olaaaa")
-
-        #breakpoint()
-        #import sys
-        #sys.path.append('diffusion_bound_regression/MID_from_git/experiments/my_config_eval/')
-        #sys.path.append('C:/Users/thiba/Desktop/Projet_VITA/code/my_s_aware_prediction_VITA/s_aware_prediction_VITA/diffusion_bound_regression/MID_from_git/models')
-
-        #from pathlib import Path
-        # str_path = "my_path"
-        # path = Path(str_path)
-        #model_path = "./experiments/my_config_eval/eth_epoch60.pt"
-        #import os
-        #model_path = os.path.join(self.model_dir, f"{self.config.dataset}_epoch{self.config.eval_at}.pt")
-        from diffusion_bound_regression.MID_from_git.models.encoders.components.additive_attention import AdditiveAttention 
+        # !!! most of the bug from here, model was not corectly saved by them (file MID_from_git/mid.py)
+        # they saved the whole model which creates weird dependencied with modules having to be at exact same path
         checkpoint = torch.load(model_path, map_location = "cpu")
-        # breakpoint()
-        # ckpt_reg = torch.load("registar_dict.pt")
-        # ckpt_reg = torch.load("ddpm_dict.pt")
-        #breakpoint()
 
         self.registrar.load_models(checkpoint['encoder'])
 
         #ENCODER load for eval
         self.encoder = Trajectron(self.registrar, self.hyperparams, self.device)
 
-        self.train_data_path = "diffusion_bound_regression/MID_from_git/processed_data/eth_train.pkl"
+        self.train_data_path = train_data_path
         with open(self.train_data_path, 'rb') as f:
             self.train_env = dill.load(f, encoding='latin1')
         self.encoder.set_environment(self.train_env)
@@ -693,25 +539,28 @@ class DiffDenoiser():
         print("> Model built!")
 
     def get_context(self, batch):
-        #breakpoint()
+        """
+        gets the context for the conditional diffusion
+        """
         context = self.model.encoder.get_latent(batch, self.node_type)
         return context
 
     def noise_with_diff(self, obs:torch.Tensor, sigma):
         """
-        add a diffusion noise coresponding to sigma
+        Adds a diffusion noise coresponding to sigma, and return the coresponding timestep.
+        Curently, the model was train with beta_T = 0.05 -> the max sigma is 0.23 <-> t = 100
+        To be able to increase, one would need to train with beta_T = 1.
 
         params:
         -------
-        obs : tensor
-        sigma : noise level to add
+        obs(tensor) : t_noise last observation traj 
+        sigma(float) : noise level to add
 
         returns:
         -------
-        noisy_obs : 
-        t_noise (int): the coresponding timestep (0-100)
+        noisy_obs(tensor) : t_noise last observation traj noised 
+        t_noise(int): the coresponding timestep (0-100)
         """
-        #breakpoint()
         t_noise = self.get_t(sigma)
         alpha_t = self.model.diffusion.var_sched.alphas[t_noise].to("cpu")
 
@@ -732,25 +581,6 @@ class DiffDenoiser():
         return round((1-beta1-term)/(betaT-beta1)*num_step)
 
 
-    # def denoise_trough_pos_one_shot(self, t_noise, noisy_obs:torch.Tensor, context, Tpred = 12):
-    #     """
-    #     not finished !!!
-    #     params:
-    #     -------
-
-    #     t_noise(int): timestep at which the noise (sigma) coresponds
-    #     noisy_obs(torch.Tensor) :  must be in our format : Tpred x N_ag x 2 : IS THEPOSITION 
-    #     context : encoding of the scene
-
-    #     """
-
-    #     var_sched = self.model.diffusion.var_sched #scheduler of Trajectron of autoencoder
-    #     decoder_trans = self.model.diffusion.net #type TransformerConcatLinear
-
-    #     batch_size = context.size(0)
-
-    #     noisy_obs = noisy_obs.permute((1,0,2)) # now N_ag x Tpred x 2
-
     def denoise_trough_vel(self, t_noise, noisy_obs:torch.Tensor, context, stride=None, sampling="ddpm"):
         """
         params:
@@ -770,16 +600,16 @@ class DiffDenoiser():
         decoder_trans = self.model.diffusion.net #type TransformerConcatLinear
 
         batch_size = context.size(0)
-        #breakpoint()
 
+        #diffusion in other format
         noisy_obs = noisy_obs.permute((1,0,2)) # now N_ag x Tpred x 2
 
+        #convert position to velocity, the diffusion works on velocity
         v_t = self.get_velocity(noisy_obs).to(self.device) #x_T is veolity space
-        #breakpoint()
-        #verif
 
         flexibility = 0.0
 
+        #diffusion process
         for t in range(t_noise, 0, -stride):
 
             z = torch.randn_like(v_t) if t > 1 else torch.zeros_like(v_t)
@@ -794,7 +624,6 @@ class DiffDenoiser():
 
 
             beta = var_sched.betas[[t]*batch_size]
-            #breakpoint()
             e_theta = decoder_trans(v_t, beta=beta, context=context)
             if sampling == "ddpm":
                 v_next = c0 * (v_t - c1 * e_theta) + sigma * z
@@ -804,37 +633,19 @@ class DiffDenoiser():
 
             v_t = v_next    # Stop gradient and save trajectory.
 
-
-
-
-            # beta = var_sched.betas[[t]*batch_size]
-            # e_theta = decoder_trans(v_t, beta=beta, context=context)
-
-            # v0_t = (v_t - e_theta * (1 - alpha_bar).sqrt()) / alpha_bar.sqrt()
-            # v_next = alpha_bar_next.sqrt() * v0_t + (1 - alpha_bar_next).sqrt() * e_theta
-
-            # v_t = v_next.detach()     # Stop gradient and save trajectory.
-
+        #get the dynamic to integrate the velocity and retrieve position
         dynamics = self.model.encoder.node_models_dict[self.node_type].dynamic
         obs_denoised = dynamics.integrate_samples(v_t.unsqueeze(0)).squeeze(0) # Dynamics is expecting a batch of speed !!!!
 
+        #back in out format
         obs_denoised = obs_denoised.permute((1,0,2)) # now Tpred x N_ag x 2
-        #breakpoint()
-
-        #other
-        #pos = self.integrate_velocity(v_t, last pos of unnoised obs (6th value, pos 5))
-
-
         return obs_denoised
-    
-    def integrate_velocity(self, init_pos:torch.tensor, vel:torch.Tensor):
-        return torch.cumsum(vel, dim=1) * self.dt + init_pos                ##carefull wich dim
 
 
 
     def get_velocity(self, pos:torch.Tensor):
         """
-        pos() : N_ag x Tpred x 2
+        pos(torch.Tesor) : the position tensor, N_ag x Tpred x 2
         """
         pos = pos.numpy()
         num_agents = pos.shape[0]
@@ -847,14 +658,9 @@ class DiffDenoiser():
             vel.append(torch.stack((vx,vy), dim = 1))
         return torch.stack(vel, dim = 0)
 
-     
-
-# def eval_senes(scenes:list(Scene)):
-#     for i, scene in enumerate(scenes):
-#             print(f"----- Evaluating Scene {i + 1}/{len(scenes)}")
 
 def main():
-
+    return #no more callable
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     node_type = "PEDESTRIAN"
@@ -863,57 +669,59 @@ def main():
     #t_obs = 9
     t_noise = 3
     t_clean = 6
-    beta_T = 0.05          #orig, trained with 0.05          ##final variance ? 
+    beta_T = 0.05          #orig, trained with 0.05
+    sigma = 0.1
+
+    observation = OBS_TENSOR_3 #only diffusion to denoise observation
+
 
     data_prec = DataPreproc(node_type = node_type, dt = dt, t_clean = t_clean, t_noise = t_noise)
-    #scene_test = torch.rand((21,4,2))
-    #scene_test = torch.cat((OBS_TENSOR[:t_obs,:,:], RAW_PRED_SLSTM[-t_pred:,:,]), dim = 0)
-    #breakpoint()
-
-    time_before = time.perf_counter()
-
-    observation = OBS_TENSOR_3
-
-    #batch, nodes, timesteps_o = data_prec.preproc_scene(scene_test) #whole scene
-    batch, nodes, timesteps_o = data_prec.preproc_scene_only_obs(observation) #konw obs is futur
-
-    #discard agent with no "obs" in the first 6 -> can't be denoised
-    #breakpoint()
-    observation_clean = data_prec.discard_nodes(observation, nodes)
 
     #only at begining
-    model_path = "experiments/my_config_eval/eth_epoch60.pt"
-    config_path="configs/my_config_eval.yaml"
+    model_path = "diffusion_bound_regression/MID_from_git/experiments/my_config_eval/eth_epoch60.pt"
+    config_path="diffusion_bound_regression/MID_from_git/configs/my_config_eval.yaml"
     with open(config_path) as f:
        config = yaml.safe_load(f)
     config = EasyDict(config)
     dd = DiffDenoiser(config = config, model_path = model_path, dt = dt, node_type = node_type, device=device, beta_T=beta_T)
 
-    ##
-    context = dd.get_context(batch) #Nag x 256
 
-    #WE NOISE ON OBS, NOT PRED
-    #pred = scene_test[-t_pred:,:,:].clone() #now 12xnagx2
-    #obs = scene_test[:t_obs,:,:].clone() 
-    last_3_obs = observation_clean[-t_noise:,:,:].clone().detach()
 
-    sigma = 0.1
-    #breakpoint()
+
+    time_before = time.perf_counter()
+
+    #get batch data and context
+    batch, nodes, timesteps_o = data_prec.preproc_scene_only_obs(observation)
+    context = dd.get_context(batch)
+
+    #add noise on all the agent, only the t_noise=3 last steps
+    last_3_obs = observation[-t_noise:,:,:].clone().detach()
     noisy_last_3_obs, t_coresp_noise = dd.noise_with_diff(last_3_obs, sigma)
-    #noisy_obs = obs
-    #t_noise = 47
 
-    #do all in one step
-    denoised_last_3_obs = dd.denoise_trough_vel(t_coresp_noise, noisy_last_3_obs, context, sampling="ddim")
-    denoised_last_3_obs = denoised_last_3_obs.cpu().detach()
+    #some nodes are discarded by the batch, we can't denoise them
+    noisy_last_3_obs_discard, present_node = data_prec.discard_nodes(noisy_last_3_obs, nodes) #discard 
+
+    #denoise them
+    denoised_last_3_obs = dd.denoise_trough_vel(t_coresp_noise, noisy_last_3_obs_discard, context, sampling="ddim").cpu().detach()
+
+    #put back the one that were denoised
+    inserted = 0
+    for i in range(noisy_last_3_obs.shape[1]): #num agents
+        if str(i) in present_node:
+            noisy_last_3_obs[:,i,:] = denoised_last_3_obs[:,inserted,:]
+            inserted += 1
+
+    #stich the t_clean=6 first and the rest
+    noisy_observation = torch.concat((observation[:t_clean,:,:], noisy_last_3_obs), dim=0)
 
     time_after = time.perf_counter()
     print("time : ", time_after - time_before)
+    
 
-    #same, but step by step
-    denoised_last_3_obs_stride_1 = dd.denoise_trough_vel(t_noise, noisy_last_3_obs, context, stride = 1, sampling="ddim")
-    denoised_last_3_obs_stride_1 = denoised_last_3_obs_stride_1.cpu().detach()
-    #breakpoint()
+
+
+
+
 
     nag = denoised_last_3_obs.shape[1]
     for i, i_ag in enumerate(range(nag)):
