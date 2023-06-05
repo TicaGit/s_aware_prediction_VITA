@@ -247,19 +247,19 @@ def main(epochs=10):
 
     #breakpoint()
     #take a slice for test
-    #all_data = all_data[0:2]
-    all_data = all_data[200:201] #many agent interactions
+    all_data = all_data[21:22]
+    #all_data = all_data[200:201] #many agent interactions
     #idx = [246,852]
     #all_data = [all_data[i] for i in idx]
     
-    rs = [0.01, 0.05, 0.1] 
-    sigmas = [0.05, 0.1, 0.23] #min ~sig = 10*r 0.23max for diffusion
-    #rs = [0.01]
-    #sigmas = [0.1]
+    #rs = [0.01, 0.05, 0.1] 
+    #sigmas = [0.05, 0.1, 0.23] #min ~sig = 10*r 0.23max for diffusion
+    rs = [0.05]
+    sigmas = [0.1]
     for r in rs:
         for sigma in sigmas:
-            if r == 0.01 and sigma == 0.05:
-                continue #this config already done
+            # if r == 0.01 and sigma == 0.05:
+            #     continue #this config already done
             print(f"sigma: {sigma}, r: {r}")
             #predict bounds
             filename = "out_bounds/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
@@ -270,7 +270,7 @@ def main(epochs=10):
 
             #breakpoint()
             
-            num_draw = 1
+            num_draw = 2
             for j, (m_pred, b, r_pred) in enumerate(zip(all_mean_pred, all_bounds, all_real_pred)):
                 if j < num_draw:
                     if function == "mean":

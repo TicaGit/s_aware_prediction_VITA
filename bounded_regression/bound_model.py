@@ -519,14 +519,18 @@ class SmoothBounds():
         denoised_last_3_obs = self.dd.denoise_trough_vel(t_coresp_noise, noisy_last_3_obs_discard, context, sampling="ddim").cpu().detach()
 
         #put back the one that were denoised
+        denoised = noisy_last_3_obs.clone().detach()
         inserted = 0
-        for i in range(noisy_last_3_obs.shape[1]): #num agents
+        for i in range(denoised.shape[1]): #num agents
             if str(i) in present_node:
-                noisy_last_3_obs[:,i,:] = denoised_last_3_obs[:,inserted,:]
+                denoised[:,i,:] = denoised_last_3_obs[:,inserted,:]
                 inserted += 1
 
+        #we only want noise-deoise on the main agent, replace the other value by the original
+        denoised[:,1:,:] = last_3_obs[:,1:,:]
+
         #stich the t_clean=6 first and the rest
-        noisy_observation = torch.concat((observation[:self.t_clean,:,:], noisy_last_3_obs), dim=0)
+        noisy_observation = torch.concat((observation[:self.t_clean,:,:], denoised), dim=0)
 
         #run the model
         _, outputs_perturbed = self.model(
@@ -538,40 +542,71 @@ class SmoothBounds():
 
         #breakpoint()
         #just print
-        do_print = False
+        do_print = True
         if do_print:
             #FALSE
             nag = noisy_last_3_obs.shape[1]
-            for i, i_ag in enumerate(range(nag)):
-                #obs_i = observation_clean[:,i_ag,:]
-                obs_i = observation[:(self.t_clean + 1),i_ag,:]
-                last_3_obs_i = last_3_obs[:,i_ag,:]
-                noisy_3_obs_i = noisy_last_3_obs[:,i_ag,:]
-                outputs_stiched_i = outputs_stiched[:,i_ag,:]
-                #denoised_3_obs_i = denoised_last_3_obs[:,i_ag,:]
-                #denoised_3_obs_i_s1 = denoised_last_3_obs_stride_1[:,i_ag,:]
+            for i_ag in range(nag):
 
-                if i == 0:
-                    #plt.plot(obs_i[:,0], obs_i[:,1], c="r", label="real obs")
-                    plt.plot(obs_i[:,0], obs_i[:,1], c="r", label="untouched")
-                    plt.plot(last_3_obs_i[:,0], last_3_obs_i[:,1], c="y", label="will be noised")
-                    plt.plot(noisy_3_obs_i[:,0], noisy_3_obs_i[:,1], c="g", label="noised")
-                    plt.plot(outputs_stiched_i[:,0], outputs_stiched_i[:,1], c="cyan", label="denoise (only one step)")
-                    # plt.plot(denoised_3_obs_i[:,0], denoised_3_obs_i[:,1], c="cyan", label="denoise (only one step)")
-                    #plt.plot(denoised_3_obs_i_s1[:,0], denoised_3_obs_i_s1[:,1], c="b", label="many steps (1 by 1)")
+                
+                obs_i = observation[:(self.t_clean + 1),i_ag,:]
+                obs_noise_i = last_3_obs[:,i_ag,:]
+                pred_i = torch.concat((noisy_observation[-1,i_ag,:].unsqueeze(0), outputs_perturbed[-self.pred_length:,i_ag,:]), dim = 0)
+                
+
+                if i_ag == 0:
+                    plt.plot(obs_i[:,0], obs_i[:,1], c="k", label="untouched")
+                    plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="grey", label="will get noised")
+                    plt.plot(pred_i[:,0], pred_i[:,1], c="r", label="prediction")
+
+                    plt.plot(noisy_last_3_obs[:,0,0], noisy_last_3_obs[:,0,1], c="g", label="noised")
+                    plt.plot(denoised[:,0,0], denoised[:,0,1], c="cyan", label="denoised")
+                    
+
                 else:
-                    #plt.plot(obs_i[:,0], obs_i[:,1], c="r")
-                    plt.plot(obs_i[:,0], obs_i[:,1], c="r")
-                    plt.plot(last_3_obs_i[:,0], last_3_obs_i[:,1], c="y")
-                    plt.plot(noisy_3_obs_i[:,0], noisy_3_obs_i[:,1], c="g")
-                    plt.plot(outputs_stiched_i[:,0], outputs_stiched_i[:,1], c="cyan")
-                    # plt.plot(denoised_3_obs_i[:,0], denoised_3_obs_i[:,1], c="cyan")
-                    #plt.plot(denoised_3_obs_i_s1[:,0], denoised_3_obs_i_s1[:,1], c="b")
+                    plt.plot(obs_i[:,0], obs_i[:,1], c="k")
+                    plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="k")
+                    plt.plot(pred_i[:,0], pred_i[:,1], c="r")
+
+
+
+
+
+
+
+
+                # #obs_i = observation_clean[:,i_ag,:]
+                # obs_i = observation[:(self.t_clean + 1),i_ag,:]
+                # last_3_obs_i = last_3_obs[:,i_ag,:]
+                # noisy_3_obs_i = noisy_last_3_obs[:,i_ag,:]
+                # outputs_perturbed_i = outputs_perturbed[:,i_ag,:]
+                # # outputs_stiched_i = outputs_stiched[:,i_ag,:]
+                # #denoised_3_obs_i = denoised_last_3_obs[:,i_ag,:]
+                # #denoised_3_obs_i_s1 = denoised_last_3_obs_stride_1[:,i_ag,:]
+                # denoised
+
+                # if i_ag == 0: #main
+                #     #plt.plot(obs_i[:,0], obs_i[:,1], c="r", label="real obs")
+                #     plt.plot(obs_i[:,0], obs_i[:,1], c="r", label="untouched")
+                #     plt.plot(last_3_obs_i[:,0], last_3_obs_i[:,1], c="orange", label="will be noised")
+                #     plt.plot(noisy_3_obs_i[:,0], noisy_3_obs_i[:,1], c="g", label="noised")
+                #     plt.plot(outputs_perturbed_i[:,0],outputs_perturbed_i[:,0], c="k", label = "denoised")
+                #     # plt.plot(outputs_stiched_i[:,0], outputs_stiched_i[:,1], c="cyan", label="denoise (only one step)")
+                #     # plt.plot(denoised_3_obs_i[:,0], denoised_3_obs_i[:,1], c="cyan", label="denoise (only one step)")
+                #     #plt.plot(denoised_3_obs_i_s1[:,0], denoised_3_obs_i_s1[:,1], c="b", label="many steps (1 by 1)")
+                # else:
+                #     #plt.plot(obs_i[:,0], obs_i[:,1], c="r")
+                #     plt.plot(obs_i[:,0], obs_i[:,1], c="r")
+                #     plt.plot(last_3_obs_i[:,0], last_3_obs_i[:,1], c="r")
+                #     plt.plot(noisy_3_obs_i[:,0], noisy_3_obs_i[:,1], c="g")
+                #     plt.plot(outputs_stiched_i[:,0], outputs_stiched_i[:,1], c="cyan")
+                #     # plt.plot(denoised_3_obs_i[:,0], denoised_3_obs_i[:,1], c="cyan")
+                #     #plt.plot(denoised_3_obs_i_s1[:,0], denoised_3_obs_i_s1[:,1], c="b")
             
             plt.legend()
             plt.savefig('plot_diffusion_denoise.png')
 
-        #breakpoint()
+        breakpoint()
 
         return outputs_stiched, _
 
