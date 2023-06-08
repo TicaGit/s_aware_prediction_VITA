@@ -17,9 +17,9 @@ on Linux, the scripts must be rewritten with .sh format
 This readme file will introduce the reader to the work I've done with my project. 
 
 This project is about certified trajectory prediction. The goal is to find a certified model which is guaranteed to have bounded outputs given bounded input. If such a model exists, we are interested in knowing those bounds. <br>
-In this work, we will focus on trying to apply this concept to a trajectory prediction model. This is very important for self-driving tasks, where having guarantees not to crash into an obstacle can be crucial. Particularly, we will use the social LSTM model [1] to predict the future from observation trajectories.
+In this work, we will focus on trying to apply this concept to a trajectory prediction model. This is very important for self-driving tasks, where having guarantees not to crash into an obstacle can be crucial. Particularly, we will use VITA's social-LSTM model [1] to predict the future from observation trajectories.
 
-At first, I realized several experiment to look for a promising direction for this project. The experiments I've done will be briefly introduced here and more information about those are contained in the corresponding .ipynb file. <br>
+At first, I realized several experiments to look for a promising direction for this project. The experiments I've done are briefly introduced below and more information are provided in the corresponding .ipynb file. <br>
 The final experiment, which is  my project's main topic, has its theory discussed in this readme and its implementation aspects in the jupyter file.
 
 ## Experiments (chronological)
@@ -31,13 +31,21 @@ file: analyse/03_18_exp_noise/analyse_exp.ipynb
 This experiment adds noise to the observation trajectory of **corrupted** scenes (with the s-attack method). We then analyse the resulting prediction, in terms of collision.<br>
 Mind that during the whole project, we will always only add noise on the **last 3 timesteps** of the observation trajectories.
 
+<p align="center">
+    <img src="./figures_readme/exp_03_18.png"  height="300">
+</p>
+
 ### **Certification of trajectories** :
 
 file: analyse/03_25_zero_col_certif/my_analyze.ipynb
 
 This experiment has for goal to certify that a scene is collision-free. With a maximum noise level, we can certify that the "smoothed classifier" output will be "no collision" for a particular scene.
 
-### **Fde/ade under noise** :
+<p align="center">
+    <img src="./figures_readme/exp_03_25.png"  height="300">
+</p>
+
+### **fde/ade under noise** :
 
 file: analyse/04_03_f_ade_zero_col_cert/analyse.ipynb
 
@@ -67,11 +75,20 @@ file: analyse/04_25_no_noise_clean/analyse_04_25.ipynb
 
 In this experiment, I am doing the last data check. I try many combination of preprocessing options, to see which one corresponds to the correct numbers. I also did an IA crowd submission to verify the numbers. In this file, I explain that there exists another definition for collision and that the number I was trying to get corresponds to a specific type of scene.
 
+<p align="center">
+    <img src="./figures_readme/IA_crowd_sub.png"  height="300">
+</p>
+
 ### **RIGHT: Zero collision predictor v3** :
 
 file: analyse/04_26_redo_0_col_pred/analyse_04_26.ipynb
 
 Now that the correct way of handling NaN values is understood, we can repeat the experiment of the zero-predictor. It has for goal to predict a collision-free scene, even if the original predictions would have had a collision.
+
+<p align="center">
+    <img src="./figures_readme/exp_04_26.png"  height="300">
+</p>
+
 
 ### **Bounded trajectory regression** :
 
@@ -79,6 +96,19 @@ file : analyse/05_08_bounds/analyse_08_may.ipynb
 
 This experiment is the main topic of my project. Given a maximal perturbation radius, we show that each coordinate of a predicted trajectory can be bounded. The theory behind this experiment is explained in the following section. 
 We tested different types of functions to "summarize" the 100 noisy trajectories drawn: the mean and 2 types of medians. Finally, a diffusion denoiser was also implemented to reduce the variance of the noise added.
+
+<p align="center">
+    <img src="./figures_readme/mean_vs_diff_fde.png"  height="300">
+    <img src="./figures_readme/denoising_scene_20.gif"  height="300">
+</p>
+
+### **Norm of noise before and after diffusion** :
+
+file : analyse/06_08_noise/analyse_06_08.ipynb
+
+To better understand the diffusion process, we wanted to see if the diffusion denoising process was really denoising the signal.
+
+
 
 ## Theory of **Bounded trajectory regression**
 
@@ -121,18 +151,19 @@ Once those steps are done, one can proceed with the Monte Carlo sampling, to est
 
 ## Conclusion & future work
 
-With the experiment **Bounded trajectory regression**, we saw that we can indeed obtain bounds, given a maximal imput size. We demonstrated how the theory, initially thought for "certified object detection", can be extended to another regression problem: trajectory prediction. We then showed how this process could be improoved with diffusion denoised smoothing, and how tigher the bounds are compared to just using the mean of the raw predictior.<br>
-These bounds however are rather loose. Here are some idea that could results in tighting those.
+With the experiment **Bounded trajectory regression**, we saw that we can indeed obtain bounds, given a maximal input size. We demonstrated how the theory, initially thought for "certified object detection", can be extended to another regression problem: trajectory prediction. We then showed how this process could be improved with diffusion denoised smoothing, and how tighter the bounds are compared to just using the mean of the raw predictor.<br>
+These bounds however are rather loose. Here are some ideas that could result in tightening those.
 
-- Investigate on diffusion. The diffusion denoising is applied on the velocity. Maybe directly applying it on the position could results in less numerical approximation (integration) and faster computation speed.
+- Investigate diffusion. The diffusion denoising is applied to the velocity. Maybe directly applying it to the position could result in less numerical approximation (integration) and faster computation speed.
 
-- Regarding the formulla to compute the bounds, we were forced to choose really large prior bounds $l$ and $u$. One can easilly see that this is not optimal, and I personnally think that find a way to tightning those, coordinate-wise, could lead to better results. 
+- Regarding the formula to compute the bounds, we were forced to choose really large prior bounds $l$ and $u$. One can easily see that this is not optimal, and I personally think that finding a way to tighten those, coordinate-wise, could lead to better results. 
 
-- We chose to apply noise only on the last 3 timesteps. As the formulla used expects noise on the whole input, our choice was more constrained. Thus, there should be a way to tighten the bounds base on this fact.
+- We chose to apply noise only on the last 3 timesteps. As the formula used expects noise on the whole input, our choice was more constrained. Thus, there should be a way to tighten the bounds, based on this fact.
 
-- Another path to explore could be the Median Smoothing theory, introduced in [4]. They propose another formulla, without the need of formulating the prior bounds $l$ and $u$.
+- Another path to explore could be the Median Smoothing theory, introduced in [4]. They propose another formula, without the need of formulating the prior bounds $l$ and $u$.
 
 There is still a lot to do, but this work contains an implementation basis and is a working proof-of-concept.
+
 
 ## Code 
 
