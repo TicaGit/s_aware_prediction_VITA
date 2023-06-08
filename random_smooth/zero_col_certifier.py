@@ -222,7 +222,7 @@ def main(epochs=10):
                           obs_length = args.obs_length)
 
     n0 = 100
-    n = 500 #5000
+    n = 500 #5000 #for certification
     alpha = 0.01
 
     PREDICTION_MODE = "just_one" # "majority"
@@ -231,21 +231,13 @@ def main(epochs=10):
 
     #PREPROCESS SCENES
     all_data = smooth_model.preprocess_scenes(test_scenes, test_goals, remove_static=False)
-    #there are 3146 scenes, or 1232 if we discard the solo agents
 
     #take a slice for test
-    #all_data = all_data[0:2]
-    idx = [246,852]
-    #all_data = [all_data[i] for i in idx]
+    all_data = all_data[0:2]
 
     #vary noise level
-    #sigmas = []
-    sigmas = [0.0, 0.004, 0.008, 0.012, 0.016, 0.02] #test with no noise [idea : 0.001-0.02]
+    sigmas = [0.0, 0.004, 0.008, 0.012, 0.016, 0.02]
     for i,sig in enumerate(sigmas):
-
-        #print(len(all_data))  !
-
-
 
         #CERTIFY SCENES
         filename = "out/temp_cert/results_certify_all_" + str(sig) + ".txt"
@@ -261,8 +253,6 @@ def main(epochs=10):
         # filename_fade = "out/temp_fade/results_ade_fde_" + str(sig) + ".txt"
         # with open(filename_fade, "w+") as f:
         #         f.write("idx\tfde\tade\n")
-
-        # all_data IS ground truth (if datapart == secret)
 
         for j, (pred, real_pred, ground_t) in enumerate(zip(all_pred, all_real_pred, all_data)):
             #DRAW SOME OF THE PREDICTED SCENES
@@ -283,22 +273,6 @@ def main(epochs=10):
             # with open(filename_fade,"a") as f:
             #     f.write(str(j)+ "\t" + str(fde) + "\t" + str(ade) +"\n")
 
-            
-    
-
-    # trainer
-    # saving_name = str(args.type) + "-" + str(args.collision_type) + "-noise-"  + str(args.reg_noise) + "-w-" + str(args.reg_w) + "-barrier-" + str(args.barrier)
-
-    # trainer = Trainer(model, lr=args.lr, device=args.device, barrier=args.barrier, show_limit=args.show_limit,
-    #                   criterion=args.loss, collision_type = args.collision_type,
-    #                   obs_length=args.obs_length, reg_noise = args.reg_noise, reg_w = args.reg_w,
-    #                   pred_length=args.pred_length, augment=args.augment, normalize_scene=args.normalize_scene,
-    #                   start_length=args.start_length, obs_dropout=args.obs_dropout,
-    #                   sample_size = args.sample_size, perturb_all = args.perturb_all, threads_limit=args.threads_limit,
-    #                   speed_up=args.speed_up, saving_name=saving_name, enable_thread=args.enable_thread,
-    #                   output_dir=args.output)
-    # trainer.attack(test_scenes, test_goals)
-    # trainer.numerical_stats()
 
 
 if __name__ == '__main__':

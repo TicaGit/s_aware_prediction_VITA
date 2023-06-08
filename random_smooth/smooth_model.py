@@ -115,14 +115,8 @@ class Smooth(object):
             scene_goal = x[2]
             batch_split = torch.Tensor([0,scene.size(1)]).to(self.device).long()
 
-            # print(scene)
-            # print(i, scene_id)
-            #visualize_scene(scene)
-            #breakpoint()
-            
             col, r = self.certify_scene(scene, scene_goal, batch_split)
             log_cert(filename_results, scene_id, self.sigma, col, r)
-            #breakpoint()
 
 
     def predict_all(self, all_data:list, filename_results:str, 
@@ -152,11 +146,6 @@ class Smooth(object):
             scene = x[1]
             scene_goal = x[2]
             batch_split = torch.Tensor([0,scene.size(1)]).to(self.device).long()
-
-            # print(scene)
-            # print(i, scene_id)
-            #visualize_scene(scene)
-            #breakpoint()
 
             #get real only with Tobs timesteps
             _, real_pred = self.slstm(scene[:self._obs_length],  
@@ -214,12 +203,10 @@ class Smooth(object):
                  in the case of abstention, the class will be ABSTAIN and the radius 0.
         """
 
-        #_, outputs = self.slstm(observed.clone(), goals.clone(), batch_split, n_predict=self.pred_length)
-
         observed = xy[:self._obs_length].clone()
-        #breakpoint()
+
         agents_count = len(observed[0])
-        #breakpoint()
+
         if agents_count <= 1: #solo agent
             return -2, -2
 

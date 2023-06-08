@@ -42,7 +42,7 @@ from environment.data_structures import DoubleHeaderNumpyArray
 
 
 
-
+#some test tensors
 OBS_TENSOR = torch.Tensor([[[7.0400, 2.2700],
          [7.4500, 1.6900]],
 
@@ -500,6 +500,9 @@ class DiffDenoiser():
     """
     def __init__(self, config, model_path, dt=0.4, node_type = "PEDESTRIAN", device = torch.device("cuda"),
                 beta_T = 0.05, train_data_path = "diffusion_bound_regression/MID_from_git/processed_data/eth_train.pkl"):
+        """
+        don't touch beta_T unless a model was specifically retrained with the value
+        """
         self.device = device
         self.config = config
 
@@ -572,19 +575,6 @@ class DiffDenoiser():
     def noise_with_diff_on_vel(self, obs:torch.Tensor, sigma):
         """
         NOT USED (but maybe more correct ?)
-        Adds a diffusion noise coresponding to sigma, and return the coresponding timestep.
-        Curently, the model was train with beta_T = 0.05 -> the max sigma is 0.23 <-> t = 100
-        To be able to increase, one would need to train with beta_T = 1.
-
-        params:
-        -------
-        obs(tensor) : t_noise last observation traj 
-        sigma(float) : noise level to add
-
-        returns:
-        -------
-        noisy_obs(tensor) : t_noise last observation traj noised 
-        t_noise(int): the coresponding timestep (0-100)
         """
         #get timestep and alpha coresponding to sigma
         t_noise = self.get_t(sigma)
@@ -721,8 +711,6 @@ class DiffDenoiser():
                 plt.plot(observation[:-(t_noise), i_ag ,0], observation[:-(t_noise), i_ag ,1], c="k", markersize=3, marker='o', label="untouched")
                 plt.plot(observation[-(t_noise + 1):, i_ag ,0], observation[-(t_noise + 1):, i_ag ,1], c="grey", marker='o', markersize=3, label="will get noised")
 
-                # noisy_last_3_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), noisy_last_3_obs[:,0,:]), dim = 0)
-                # plt.plot(noisy_last_3_ag_0[:,0], noisy_last_3_ag_0[:,1], c="g", label="noised")
                 denoised_ag_0 = torch.concat((observation[-1-t_noise,0,:].unsqueeze(0), obs_denoised[:,0,:]), dim = 0)
                 plt.plot(denoised_ag_0[:,0], denoised_ag_0[:,1], c="cyan", label="denoised")
                 
@@ -733,7 +721,6 @@ class DiffDenoiser():
         plt.legend()
         plt.savefig('out_bounds/gif_denoise/denoise_' + str(t) +'.png')
 
-        #breakpoint()
 
 
 

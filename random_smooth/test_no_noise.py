@@ -232,17 +232,12 @@ def main(epochs=10):
             #drop agent > obs lenght
             paths = drop_post_obs(paths, obs_length)
         
-
+        #record differences
         if paths != paths_before:
             modif += 1
-            #breakpoint()
 
         scene = trajnetplusplustools.Reader.paths_to_xy(paths) # Now T_obs x N_agent x 2
 
-        #filtered_tensor = scene[~torch.any(scene[:obs_length].isnan(),dim=0)]
-        #scene = scene[:obs_length] #cut at obs lenght
-
-        
         ## get goals
         if test_goals is not None:
             scene_goal = np.array(test_goals[filename][scene_id])
@@ -275,12 +270,11 @@ def main(epochs=10):
             
     all_data = sorted(all_data, key=itemgetter(0))
     #3146 tot lenght of private secret test set
-
     #13718 training data
 
     print(f"scene with post obs remooved : {modif}")
 
-
+    #reduce
     #all_data = all_data[0:2]
 
     ##########
@@ -307,13 +301,7 @@ def main(epochs=10):
                                 scene_goal, 
                                 batch_split, 
                                 n_predict=pred_length)
-        breakpoint()
 
-        # model_pred_orig = model_pred.clone().detach()
-
-        # if torch.isnan(model_pred[:,0,:]).any():
-        #     breakpoint() #never :)
-        
         #necessary : if any(distances) is nan, then torch.min = nan -> never a colision
         pred_nan = torch.isnan(model_pred)
         for j in range(len(model_pred)):
@@ -321,10 +309,6 @@ def main(epochs=10):
                 if any(pred_nan[j, k].tolist()):
                     model_pred.data[j, k] = 10000
                     model_pred[j, k].detach()
-
-        #model_pred = torch.cat((scene[:obs_length], model_pred[-pred_length:]))
-
-        #model_pred = torch.cat((model_pred, torch.zeros(2,model_pred.shape[1],2))) #to draw
 
         # Each Neighbors Distance to The Main Agent
         agents_count = len(model_pred[0]) #all calulation are rel. to 1st
@@ -348,14 +332,11 @@ def main(epochs=10):
         num_gt_neigh = scene.shape[1] - 1
         num_predicted_neigh = model_pred.shape[1] - 1 
         if num_gt_neigh != num_predicted_neigh:
-            breakpoint() #nerver !
-
-
+            breakpoint() #never !
 
         #like in evaluator 
         # primary_tracks_all = [t for t in self.scenes_sub[i][0] if t.scene_id == scene]
         # neighbours_tracks_all = [[t for t in self.scenes_sub[i][j] if t.scene_id == self.scenes_id_gt[i]] for j in range(1, len(self.scenes_sub[i]))]
-
 
         col_trajnetpp = 0
         inter_parts = 2 #num interpolation points
@@ -376,32 +357,10 @@ def main(epochs=10):
             #breakpoint() #some diffenrece !!
             diff_col += 1
 
-
-
-        #orig scene treat without nan replacement
-        # distances_orig = torch.sqrt(torch.sum((torch.square(model_pred_orig[-pred_length:]
-        #                     - model_pred_orig[-pred_length:, 0].repeat_interleave(agents_count, 0).reshape(
-        #                     pred_length, agents_count, 2))[:, 1:]), dim=2))
-        # score_orig = torch.min(distances_orig).data
-
-        # col_orig = int(score_orig < collision_treshold)
-
-        # if col != col_orig:
-        #     breakpoint()
-
-        #metric
         fde, ade = calc_fde_ade(model_pred[-pred_length:], scene[-pred_length:])
 
         with open(filename,"a") as f:
             f.write(str(scene_id) + "\t" + str(col) + "\t" + str(col_trajnetpp) + "\t" + str(ade) + "\t" + str(fde) + "\n")
-
-        #breakpoint()
-
-        # if i == 119:
-        #     visualize_scene(model_pred_orig)
-        #     visualize_scene(model_pred)
-        #     breakpoint()
-        #     draw_two_tensor("out/no_noise/first_display", model_pred, scene)
         
     print(tot)
     print(f"Difference in colision between methods : {diff_col}")
@@ -417,22 +376,21 @@ def visualize_scene(scene, goal=None):
     plt.legend()
     plt.show()
 
-## from trajnet_evaluator l.280
-## drop pedestrians that appear post observation
+# from trajnet_evaluator l.280
+# drop pedestrians that appear post observation
 # expect other scene representation
 def drop_post_obs(ground_truth, obs_length):
     obs_end_frame = ground_truth[0][obs_length].frame
     ground_truth = [track for track in ground_truth if track[0].frame < obs_end_frame]
     return ground_truth
 
-## from trajnet++ mertrics (site-package)
+# from trajnet++ mertrics (site-package)
 # expect other scene representation
 def getinsidepoints(p1, p2, parts=2):
     """return: equally distanced points between starting and ending "control" points"""
 
     return np.array((np.linspace(p1[0], p2[0], parts + 1),
                         np.linspace(p1[1], p2[1], parts + 1)))
-
 
 
 if __name__ == '__main__':
