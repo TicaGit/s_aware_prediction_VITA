@@ -106,9 +106,7 @@ We tested different types of functions to "summarize" the 100 noisy trajectories
 
 file : analyse/06_08_noise/analyse_06_08.ipynb
 
-To better understand the diffusion process, we wanted to see if the diffusion denoising process was really denoising the signal.
-
-
+To better understand the diffusion process, we wanted to see if the diffusion denoising process was really denoising the trajectory.
 
 ## Theory of **Bounded trajectory regression**
 
