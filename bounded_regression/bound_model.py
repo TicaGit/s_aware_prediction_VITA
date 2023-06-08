@@ -50,6 +50,8 @@ class SmoothBounds():
         self._obs_length = obs_length
         self.bound_margin = bound_margin
 
+        self.do_print = False #generate graph or not
+
         self.function = function
         if function == "diffusion":
             self._init_difusion(t_clean = t_clean, t_noise = t_noise)
@@ -132,6 +134,12 @@ class SmoothBounds():
         with open(filename, "w+") as f:
             f.write("scene_id\t" + "sigma\t" + "r\t" + "ade\t" + "fde\t" + "abd\t" + "fbd\n")
 
+        do_noise = True
+        if self.function == "diffusion" and do_noise:
+            with open("out_bounds/noise.txt", "w+") as f:
+                f.write("scene_id\t" + "sigma\t" + "r\t" + "noise_before\t" + "noise_after\n" )
+
+
         start = 0
         all_real_pred = []
         all_mean_pred = []
@@ -142,6 +150,8 @@ class SmoothBounds():
             scene = x[1].to(self.device) #todevice is new
             scene_goal = x[2].to(self.device)
             batch_split = torch.Tensor([0,scene.size(1)]).to(self.device).long()
+
+            self.scene = scene
 
             observed = scene[:self._obs_length].detach().clone()
 
@@ -158,6 +168,11 @@ class SmoothBounds():
     
             #mean smoothing bounds computation
             mean_pred, bounds = self.compute_bounds_scene(observed, scene_goal, batch_split)
+
+            if self.function == "diffusion" and do_noise:
+                log_with_noise("out_bounds/noise.txt", scene_id, self.sigma, self.r ,self.noise_before_mean, self.noise_after_mean)
+                
+                
 
             #HERE STICHING TO MAKE LEN == 21
             #breakpoint()
@@ -240,10 +255,17 @@ class SmoothBounds():
         
         with torch.no_grad():
             #necessary to put first iter here 
+
+            noise_before_mean = []
+            noise_after_mean = []
+
             if diffusion:
-                outputs_perturbed, noise = self._sample_noise_diffusion(observed.detach().clone(), goal, batch_split)
+                outputs_perturbed, noise_before, noise_after = self._sample_noise_diffusion(observed.detach().clone(),
+                                                                                            goal, batch_split, n=-1)
+                noise_before_mean.append(noise_before)
+                noise_after_mean.append(noise_after)
             else:
-                outputs_perturbed, noise = self._sample_noise(observed.detach().clone(), goal, batch_split)
+                outputs_perturbed, noise = self._sample_noise(observed.detach().clone(), goal, batch_split, n=-1)
             #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
             #outputs_perturbed = torch.cat((observed + noise, outputs_perturbed[-self.pred_length:]))
 
@@ -275,9 +297,12 @@ class SmoothBounds():
             for n in range(num - 1):
                 #predict output
                 if diffusion:
-                    outputs_perturbed, noise = self._sample_noise_diffusion(observed.detach().clone(), goal, batch_split)
+                    outputs_perturbed, noise_before, noise_after = self._sample_noise_diffusion(observed.detach().clone(),
+                                                                                                goal, batch_split, n)
+                    noise_before_mean.append(noise_before)
+                    noise_after_mean.append(noise_after)
                 else:
-                    outputs_perturbed, noise = self._sample_noise(observed.detach().clone(), goal, batch_split)
+                    outputs_perturbed, noise = self._sample_noise(observed.detach().clone(), goal, batch_split, n)
 
                 #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
                 #outputs_perturbed = torch.cat((observed + noise, outputs_perturbed[-self.pred_length:]))
@@ -300,7 +325,9 @@ class SmoothBounds():
                 high_tot = torch.maximum(high_tot, high)
 
 
-
+            if self.function == "diffusion": 
+                self.noise_before_mean = np.array(noise_before_mean).mean()
+                self.noise_after_mean = np.array(noise_after_mean).mean()
 
 
                 #visualize_scene(outputs_perturbed)
@@ -316,7 +343,27 @@ class SmoothBounds():
             low_tot = low_tot.repeat(mean_pred.shape[0], mean_pred.shape[1], 1)
             high_tot = high_tot.repeat(mean_pred.shape[0], mean_pred.shape[1], 1)
 
-            #breakpoint()
+            #drawing
+            if self.do_print:
+                nag = mean_pred.shape[1]
+                for i_ag in range(nag):
+                    if i_ag == 0:
+                        plt.plot(mean_pred[-(self.pred_length+1):,i_ag,0], mean_pred[-(self.pred_length+1):,i_ag,1], c="b", label="mean prediction")
+                        #gt
+                        plt.plot(self.scene[-(self.pred_length+1):,i_ag,0], self.scene[-(self.pred_length+1):,i_ag,1], c="green", label="ground truth")
+                        
+                    else:
+                        plt.plot(mean_pred[-(self.pred_length+1):,i_ag,0], mean_pred[-(self.pred_length+1):,i_ag,1], c="b")
+                        #gt
+                        plt.plot(self.scene[-(self.pred_length+1):,i_ag,0], self.scene[-(self.pred_length+1):,i_ag,1], c="green")
+
+                plt.legend()
+                plt.title(str(self.function))
+                plt.savefig(f'out_bounds/all_noisy_trajs_{self.function}_gt.png')
+
+                breakpoint()
+
+
 
             return mean_pred, low_tot, high_tot
 
@@ -331,7 +378,7 @@ class SmoothBounds():
             high_tot = torch.Tensor([-1000,-1000])
             for i in range(num):
                 #compute noisy pred
-                outputs_perturbed, _ = self._sample_noise(observed.detach().clone(), goal, batch_split)
+                outputs_perturbed, _ = self._sample_noise(observed.detach().clone(), goal, batch_split, n=i-1)
 
                 #append to the list of noisy predictions : keep nans in median
                 noisy_preds.append(outputs_perturbed.clone())
@@ -378,6 +425,26 @@ class SmoothBounds():
 
             #breakpoint()
 
+            #drawing
+            if self.do_print:
+                nag = median.shape[1]
+                for i_ag in range(nag):
+                    if i_ag == 0:
+                        plt.plot(median[-(self.pred_length+1):,i_ag,0], median[-(self.pred_length+1):,i_ag,1], c="b", label="mean prediction")
+                        #gt
+                        #plt.plot(self.scene[-(self.pred_length+1):,i_ag,0], self.scene[-(self.pred_length+1):,i_ag,1], c="purple", label="ground truth")
+                        
+                    else:
+                        plt.plot(median[-(self.pred_length+1):,i_ag,0], median[-(self.pred_length+1):,i_ag,1], c="b")
+                        #gt
+                        #plt.plot(self.scene[-(self.pred_length+1):,i_ag,0], self.scene[-(self.pred_length+1):,i_ag,1], c="purple")
+
+                plt.legend()
+                plt.title(str(self.function))
+                plt.savefig(f'out_bounds/all_noisy_trajs_rand_med.png')
+
+                breakpoint()
+
             return median, low_tot, high_tot
 
 
@@ -392,7 +459,7 @@ class SmoothBounds():
             high_tot = torch.Tensor([-1000,-1000])
             for i in range(num):
                 #compute noisy pred
-                outputs_perturbed, _ = self._sample_noise(observed.detach().clone(), goal, batch_split)
+                outputs_perturbed, _ = self._sample_noise(observed.detach().clone(), goal, batch_split, n=i-1)
 
                 #append to the list of noisy predictions : keep nans in median
                 noisy_preds.append(outputs_perturbed.clone())
@@ -427,6 +494,26 @@ class SmoothBounds():
 
             low_tot = low_tot.repeat(median.shape[0], median.shape[1], 1)
             high_tot = high_tot.repeat(median.shape[0], median.shape[1], 1)
+
+            #drawing
+            if self.do_print:
+                nag = median.shape[1]
+                for i_ag in range(nag):
+                    if i_ag == 0:
+                        plt.plot(median[-(self.pred_length+1):,i_ag,0], median[-(self.pred_length+1):,i_ag,1], c="b", label="mean prediction")
+                        #gt
+                        #plt.plot(self.scene[-(self.pred_length+1):,i_ag,0], self.scene[-(self.pred_length+1):,i_ag,1], c="purple", label="ground truth")
+                        
+                    else:
+                        plt.plot(median[-(self.pred_length+1):,i_ag,0], median[-(self.pred_length+1):,i_ag,1], c="b")
+                        #gt
+                        #plt.plot(self.scene[-(self.pred_length+1):,i_ag,0], self.scene[-(self.pred_length+1):,i_ag,1], c="purple")
+
+                plt.legend()
+                plt.title(str(self.function))
+                plt.savefig(f'out_bounds/all_noisy_trajs_rand_med2.png')
+
+                breakpoint()
 
             return median, low_tot, high_tot
 
@@ -477,7 +564,7 @@ class SmoothBounds():
 
             return mean_pred, l, u
         
-    def _sample_noise(self, observed: torch.tensor, goals: torch.tensor, batch_split):
+    def _sample_noise(self, observed: torch.tensor, goals: torch.tensor, batch_split, n=None):
         """
         produce a output from a noisy version on input
         """
@@ -496,11 +583,64 @@ class SmoothBounds():
             _, outputs_perturbed = self.model(
                 noisy_observation, goals, batch_split, n_predict=self.pred_length
             )
+
+            #stich the pred to real obs
+            outputs_perturbed = torch.concat((observed, outputs_perturbed[-self.pred_length:,:,:]), dim = 0)
+
+            if self.do_print:
+                nag = outputs_perturbed.shape[1]
+                for i_ag in range(nag):
+                    
+                    obs_i = observed[:(6 + 1),i_ag,:]
+                    obs_will_noise_i = observed[6:,i_ag,:]
+                    pred_i = torch.concat((noisy_observation[-1,i_ag,:].unsqueeze(0), outputs_perturbed[-self.pred_length:,i_ag,:]), dim = 0)
+                    if n == self.n0-2:
+                        if i_ag == 0:
+                            #noisy_last_3_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), noisy_last_3_obs[:,0,:]), dim = 0)
+                            #plt.plot(noisy_last_3_ag_0[:,0], noisy_last_3_ag_0[:,1], c="g", label="noised")
+                            #noise_ag_0 = torch.concat((noisy_observation[6,0,:].unsqueeze(0), noisy_observation[-4:,0,:]), dim = 0)
+                            plt.plot(noisy_observation[-4:,0,0], noisy_observation[-4:,0,1], linewidth=0.4, c="cyan", label="noised")
+
+                            plt.plot(pred_i[:,0], pred_i[:,1], c="r", linewidth=0.4, label="prediction")
+
+                            plt.plot(obs_i[:,0], obs_i[:,1], c="k", markersize=3, marker='o', label="untouched")
+                            plt.plot(obs_will_noise_i[:,0], obs_will_noise_i[:,1], c="grey", marker='o', markersize=3, label="will get noised")
+
+                        else:
+                            plt.plot(obs_i[:,0], obs_i[:,1], c="k")
+                            plt.plot(obs_will_noise_i[:,0], obs_will_noise_i[:,1], c="k")
+                            plt.plot(pred_i[:,0], pred_i[:,1], linewidth=0.4, c="tomato")
+                        plt.legend()
+                    else:
+                        if i_ag == 0:
+                            
+                            
+
+                            #noisy_last_3_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), noisy_last_3_obs[:,0,:]), dim = 0)
+                            #plt.plot(noisy_last_3_ag_0[:,0], noisy_last_3_ag_0[:,1], c="g", label="noised")
+                            # denoised_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), denoised[:,0,:]), dim = 0)
+                            # plt.plot(denoised_ag_0[:,0], denoised_ag_0[:,1], linewidth=0.5, c="cyan")
+                            plt.plot(noisy_observation[-4:,0,0], noisy_observation[-4:,0,1], linewidth=0.4, c="cyan")
+
+                            plt.plot(pred_i[:,0], pred_i[:,1], c="r", linewidth=0.4)
+
+                            #plt.plot(obs_i[:,0], obs_i[:,1], c="k", markersize=3, marker='o')
+                            #plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="grey", marker='o', markersize=3)
+
+                        else:
+                            #plt.plot(obs_i[:,0], obs_i[:,1], c="k")
+                            #plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="k")
+                            plt.plot(pred_i[:,0], pred_i[:,1], linewidth=0.4, c="tomato")
+                #plt.savefig('out_bounds/all_noisy_trajs_mean.png')
+                #breakpoint()
+
             return outputs_perturbed, noise   
         
-    def _sample_noise_diffusion(self, observed: torch.Tensor, goals: torch.Tensor, batch_split):
+    def _sample_noise_diffusion(self, observed: torch.Tensor, goals: torch.Tensor, batch_split, n=None):
         """
-        produce a output from a noisy version on input, but denoise it with diffusion
+        produce a output from a noisy version on input, but denoise it with diffusion$
+
+        n(int) : only for plotting purposes
         """
         observation = observed.clone()
 
@@ -512,11 +652,17 @@ class SmoothBounds():
         last_3_obs = observation[-self.t_noise:,:,:].clone().detach()
         noisy_last_3_obs, t_coresp_noise = self.dd.noise_with_diff(last_3_obs, self.sigma)
 
+        #compute noise, only on agent 0
+        noise_before = torch.norm(noisy_last_3_obs[-self.t_noise:,0,:]- last_3_obs[-self.t_noise:,0,:])
         #some nodes are discarded by the batch, we can't denoise them
         noisy_last_3_obs_discard, present_node = self.data_prec.discard_nodes(noisy_last_3_obs, nodes) #discard 
   
-        #denoise them
-        denoised_last_3_obs = self.dd.denoise_trough_vel(t_coresp_noise, noisy_last_3_obs_discard, context, sampling="ddim").cpu().detach()
+        #denoise them : one-shot : stride = None, one-by-one : stride = 1
+        denoised_last_3_obs = self.dd.denoise_trough_vel(t_coresp_noise, noisy_last_3_obs_discard, context,
+                                                         observation=None, sampling="ddim", stride = None).cpu().detach()
+
+        #compute noise after denoising
+        noise_after = torch.norm(denoised_last_3_obs[-self.t_noise:,0,:]- last_3_obs[-self.t_noise:,0,:])
 
         #put back the one that were denoised
         denoised = noisy_last_3_obs.clone().detach()
@@ -542,73 +688,122 @@ class SmoothBounds():
 
         #breakpoint()
         #just print
-        do_print = True
-        if do_print:
+
+        if self.do_print:
             #FALSE
+            #plt.clf()
             nag = noisy_last_3_obs.shape[1]
             for i_ag in range(nag):
-
+                #breakpoint()
                 
                 obs_i = observation[:(self.t_clean + 1),i_ag,:]
                 obs_noise_i = last_3_obs[:,i_ag,:]
                 pred_i = torch.concat((noisy_observation[-1,i_ag,:].unsqueeze(0), outputs_perturbed[-self.pred_length:,i_ag,:]), dim = 0)
+                if n == self.n0-2:
+                    if i_ag == 0:
+                        #noisy_last_3_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), noisy_last_3_obs[:,0,:]), dim = 0)
+                        #plt.plot(noisy_last_3_ag_0[:,0], noisy_last_3_ag_0[:,1], c="g", label="noised")
+                        denoised_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), denoised[:,0,:]), dim = 0)
+                        plt.plot(denoised_ag_0[:,0], denoised_ag_0[:,1], linewidth=0.4, c="cyan", label="denoised")
+
+                        plt.plot(pred_i[:,0], pred_i[:,1], c="r", linewidth=0.4, label="prediction")
+
+                        plt.plot(obs_i[:,0], obs_i[:,1], c="k", markersize=3, marker='o', label="untouched")
+                        plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="grey", marker='o', markersize=3, label="will get noised")
+
+                    else:
+                        plt.plot(obs_i[:,0], obs_i[:,1], c="k")
+                        plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="k")
+                        plt.plot(pred_i[:,0], pred_i[:,1], linewidth=0.4, c="tomato")
+                else:
+                    if i_ag == 0:
+                        
+                        
+
+                        #noisy_last_3_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), noisy_last_3_obs[:,0,:]), dim = 0)
+                        #plt.plot(noisy_last_3_ag_0[:,0], noisy_last_3_ag_0[:,1], c="g", label="noised")
+                        denoised_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), denoised[:,0,:]), dim = 0)
+                        plt.plot(denoised_ag_0[:,0], denoised_ag_0[:,1], linewidth=0.4, c="cyan")
+
+                        plt.plot(pred_i[:,0], pred_i[:,1], c="r", linewidth=0.4)
+
+                        #plt.plot(obs_i[:,0], obs_i[:,1], c="k", markersize=3, marker='o')
+                        #plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="grey", marker='o', markersize=3)
+
+                    else:
+                        #plt.plot(obs_i[:,0], obs_i[:,1], c="k")
+                        #plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="k")
+                        plt.plot(pred_i[:,0], pred_i[:,1], linewidth=0.4, c="tomato")
+            
+            #plt.legend()
+            #plt.savefig('out_bounds/all_trajs.png')
+
+        #breakpoint()
+
+        return outputs_stiched, noise_before, noise_after
+    
+        # other disposition : noise first
+        # observation_clean, present_node = self.data_prec.discard_nodes(observation, nodes) #discard 
+
+        # #add noise on all the agent, only the t_noise=3 last steps
+        # last_3_obs_clean = observation_clean[-self.t_noise:,:,:].clone().detach()
+        # noisy_last_3_obs_clean, t_coresp_noise = self.dd.noise_with_diff_on_vel(last_3_obs_clean, self.sigma)
+
+  
+        # #denoise them
+        # denoised_last_3_obs = self.dd.denoise_trough_vel(t_coresp_noise, noisy_last_3_obs_clean, context, observation=observation, sampling="ddim", stride = 1).cpu().detach()
+
+        # #put back the one that were denoised
+        # denoised = observation[-self.t_noise:,:,:].clone().detach()
+        # inserted = 0
+        # for i in range(denoised.shape[1]): #num agents
+        #     if str(i) in present_node:
+        #         denoised[:,i,:] = denoised_last_3_obs[:,inserted,:]
+        #         inserted += 1
+
+        # #we only want noise-deoise on the main agent, replace the other value by the original
+        # denoised[:,1:,:] = observation[-self.t_noise:,1:,:]
+
+        # #stich the t_clean=6 first and the rest
+        # noisy_observation = torch.concat((observation[:self.t_clean,:,:], denoised), dim=0)
+
+        # #run the model
+        # _, outputs_perturbed = self.model(
+        #     noisy_observation, goals, batch_split, n_predict=self.pred_length
+        # )
+
+        # outputs_stiched = torch.concat((noisy_observation[:self._obs_length,:,:], outputs_perturbed[-self.pred_length:,:,:]))
+
+
+        # #breakpoint()
+        # #just print
+        # do_print = True
+        # if do_print:
+        #     #FALSE
+        #     nag = observation.shape[1]
+        #     for i_ag in range(nag):
+
                 
+        #         obs_i = observation[:(self.t_clean + 1),i_ag,:]
+        #         obs_noise_i = observation[(self.t_clean):,i_ag,:]
+        #         pred_i = torch.concat((noisy_observation[-1,i_ag,:].unsqueeze(0), outputs_perturbed[-self.pred_length:,i_ag,:]), dim = 0)
+                
+        #         if i_ag == 0:
+        #             plt.plot(obs_i[:,0], obs_i[:,1], c="k", markersize=3, marker='o', label="untouched")
+        #             plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="grey", marker='o', markersize=3, label="will get noised")
+        #             plt.plot(pred_i[:,0], pred_i[:,1], c="r", label="prediction")
 
-                if i_ag == 0:
-                    plt.plot(obs_i[:,0], obs_i[:,1], c="k", label="untouched")
-                    plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="grey", label="will get noised")
-                    plt.plot(pred_i[:,0], pred_i[:,1], c="r", label="prediction")
-
-                    plt.plot(noisy_last_3_obs[:,0,0], noisy_last_3_obs[:,0,1], c="g", label="noised")
-                    plt.plot(denoised[:,0,0], denoised[:,0,1], c="cyan", label="denoised")
+        #             noisy_last_3_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), noisy_last_3_obs_clean[:,0,:]), dim = 0)
+        #             plt.plot(noisy_last_3_ag_0[:,0], noisy_last_3_ag_0[:,1], c="g", label="noised")
+        #             denoised_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), denoised[:,0,:]), dim = 0)
+        #             plt.plot(denoised_ag_0[:,0], denoised_ag_0[:,1], c="cyan", label="denoised")
                     
 
-                else:
-                    plt.plot(obs_i[:,0], obs_i[:,1], c="k")
-                    plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="k")
-                    plt.plot(pred_i[:,0], pred_i[:,1], c="r")
+        #         else:
+        #             plt.plot(obs_i[:,0], obs_i[:,1], c="k")
+        #             plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="k")
+        #             plt.plot(pred_i[:,0], pred_i[:,1], c="r")
 
-
-
-
-
-
-
-
-                # #obs_i = observation_clean[:,i_ag,:]
-                # obs_i = observation[:(self.t_clean + 1),i_ag,:]
-                # last_3_obs_i = last_3_obs[:,i_ag,:]
-                # noisy_3_obs_i = noisy_last_3_obs[:,i_ag,:]
-                # outputs_perturbed_i = outputs_perturbed[:,i_ag,:]
-                # # outputs_stiched_i = outputs_stiched[:,i_ag,:]
-                # #denoised_3_obs_i = denoised_last_3_obs[:,i_ag,:]
-                # #denoised_3_obs_i_s1 = denoised_last_3_obs_stride_1[:,i_ag,:]
-                # denoised
-
-                # if i_ag == 0: #main
-                #     #plt.plot(obs_i[:,0], obs_i[:,1], c="r", label="real obs")
-                #     plt.plot(obs_i[:,0], obs_i[:,1], c="r", label="untouched")
-                #     plt.plot(last_3_obs_i[:,0], last_3_obs_i[:,1], c="orange", label="will be noised")
-                #     plt.plot(noisy_3_obs_i[:,0], noisy_3_obs_i[:,1], c="g", label="noised")
-                #     plt.plot(outputs_perturbed_i[:,0],outputs_perturbed_i[:,0], c="k", label = "denoised")
-                #     # plt.plot(outputs_stiched_i[:,0], outputs_stiched_i[:,1], c="cyan", label="denoise (only one step)")
-                #     # plt.plot(denoised_3_obs_i[:,0], denoised_3_obs_i[:,1], c="cyan", label="denoise (only one step)")
-                #     #plt.plot(denoised_3_obs_i_s1[:,0], denoised_3_obs_i_s1[:,1], c="b", label="many steps (1 by 1)")
-                # else:
-                #     #plt.plot(obs_i[:,0], obs_i[:,1], c="r")
-                #     plt.plot(obs_i[:,0], obs_i[:,1], c="r")
-                #     plt.plot(last_3_obs_i[:,0], last_3_obs_i[:,1], c="r")
-                #     plt.plot(noisy_3_obs_i[:,0], noisy_3_obs_i[:,1], c="g")
-                #     plt.plot(outputs_stiched_i[:,0], outputs_stiched_i[:,1], c="cyan")
-                #     # plt.plot(denoised_3_obs_i[:,0], denoised_3_obs_i[:,1], c="cyan")
-                #     #plt.plot(denoised_3_obs_i_s1[:,0], denoised_3_obs_i_s1[:,1], c="b")
-            
-            plt.legend()
-            plt.savefig('plot_diffusion_denoise.png')
-
-        breakpoint()
-
-        return outputs_stiched, _
 
 
     def eval_eta(self, g, l, u):
@@ -658,3 +853,10 @@ def log(filename, scene_id, sigma, r, ade, fde, abd, fbd):
     with open(filename,"a+") as f: 
         f.write(str(scene_id) + "\t" + str(sigma) + "\t" + str(r) + "\t" + 
                 str(ade) + "\t" + str(fde) + "\t" + str(abd) + "\t" + str(fbd) + "\n")
+        
+def log_with_noise(filename, scene_id, sigma, r, noise_b, noise_a):
+    with open(filename,"a+") as f: 
+        f.write(str(scene_id) + "\t" + str(sigma) + "\t" + str(r) + "\t" + 
+                str(noise_b) + "\t" + str(noise_a) + "\n")
+        
+        

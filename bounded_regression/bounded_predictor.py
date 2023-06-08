@@ -150,7 +150,7 @@ def main(epochs=10):
     args = parse_args()
 
     if args.sample < 1.0 or True: #FORCE RANDOM HERE
-        torch.manual_seed("080819")
+        torch.manual_seed("080819") #0808193
         random.seed(1)
         np.random.seed(1)
 
@@ -247,15 +247,21 @@ def main(epochs=10):
 
     #breakpoint()
     #take a slice for test
-    all_data = all_data[21:22]
+    #all_data = all_data[17:19] #draw : 20, 222 for scenes
+    #all_data = all_data[21:22]
     #all_data = all_data[200:201] #many agent interactions
     #idx = [246,852]
     #all_data = [all_data[i] for i in idx]
+    #breakpoint()
+
+    #custom
+    # x = torch.stack((torch.linspace(-6,-3,9),torch.linspace(6,3,9)), dim = 1)
+    # all_data = [(0, torch.stack((x,torch.zeros_like(x)), dim = 2), torch.zeros((2,2)))]
     
     #rs = [0.01, 0.05, 0.1] 
     #sigmas = [0.05, 0.1, 0.23] #min ~sig = 10*r 0.23max for diffusion
-    rs = [0.05]
-    sigmas = [0.1]
+    rs = [0.01]
+    sigmas = [0.15]
     for r in rs:
         for sigma in sigmas:
             # if r == 0.01 and sigma == 0.05:
@@ -270,7 +276,7 @@ def main(epochs=10):
 
             #breakpoint()
             
-            num_draw = 2
+            num_draw = 0
             for j, (m_pred, b, r_pred) in enumerate(zip(all_mean_pred, all_bounds, all_real_pred)):
                 if j < num_draw:
                     if function == "mean":

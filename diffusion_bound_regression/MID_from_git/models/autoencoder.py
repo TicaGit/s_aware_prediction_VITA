@@ -5,7 +5,7 @@ from .encoders.trajectron import Trajectron
 from .encoders import dynamics as dynamic_module
 import diffusion_bound_regression.MID_from_git.models.diffusion as diffusion #could be absolute
 #from ..models import diffusion as diffusion
-from ..models.diffusion import DiffusionTraj,VarianceSchedule
+from .diffusion import DiffusionTraj,VarianceSchedule
 import pdb
 
 class AutoEncoder(Module):

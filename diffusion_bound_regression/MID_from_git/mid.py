@@ -23,6 +23,7 @@ import evaluation
 class MID():
     def __init__(self, config):
         self.config = config
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         torch.backends.cudnn.benchmark = True
         self._build()
 
@@ -238,7 +239,7 @@ class MID():
         self.hyperparams['enc_rnn_dim_history'] = self.config.encoder_dim//2
         self.hyperparams['enc_rnn_dim_future'] = self.config.encoder_dim//2
         # registar
-        self.registrar = ModelRegistrar(self.model_dir, "cuda")
+        self.registrar = ModelRegistrar(self.model_dir, self.device)
 
         if self.config.eval_mode:
             epoch = self.config.eval_at
@@ -254,7 +255,7 @@ class MID():
             self.eval_env = dill.load(f, encoding='latin1')
 
     def _build_encoder(self):
-        self.encoder = Trajectron(self.registrar, self.hyperparams, "cuda")
+        self.encoder = Trajectron(self.registrar, self.hyperparams, self.device)
 
         self.encoder.set_environment(self.train_env)
         self.encoder.set_annealing_params()
@@ -263,9 +264,9 @@ class MID():
     def _build_model(self):
         """ Define Model """
         config = self.config
-        model = AutoEncoder(config, encoder = self.encoder)
+        model = AutoEncoder(config, encoder = self.encoder, device=self.device)
 
-        self.model = model.cuda()
+        self.model = model.to(self.device)
         if self.config.eval_mode:
             self.model.load_state_dict(self.checkpoint['ddpm'])
 

@@ -561,10 +561,50 @@ class DiffDenoiser():
         noisy_obs(tensor) : t_noise last observation traj noised 
         t_noise(int): the coresponding timestep (0-100)
         """
+        #get timestep and alpha coresponding to sigma
         t_noise = self.get_t(sigma)
-        alpha_t = self.model.diffusion.var_sched.alphas[t_noise].to("cpu")
+        alpha_t = self.model.diffusion.var_sched.alphas[t_noise].to(self.device)
 
         noisy_obs = obs*alpha_t.sqrt() + (1 - alpha_t).sqrt()*torch.randn_like(obs)
+
+        return noisy_obs, t_noise
+    
+    def noise_with_diff_on_vel(self, obs:torch.Tensor, sigma):
+        """
+        NOT USED (but maybe more correct ?)
+        Adds a diffusion noise coresponding to sigma, and return the coresponding timestep.
+        Curently, the model was train with beta_T = 0.05 -> the max sigma is 0.23 <-> t = 100
+        To be able to increase, one would need to train with beta_T = 1.
+
+        params:
+        -------
+        obs(tensor) : t_noise last observation traj 
+        sigma(float) : noise level to add
+
+        returns:
+        -------
+        noisy_obs(tensor) : t_noise last observation traj noised 
+        t_noise(int): the coresponding timestep (0-100)
+        """
+        #get timestep and alpha coresponding to sigma
+        t_noise = self.get_t(sigma)
+        alpha_t = self.model.diffusion.var_sched.alphas[t_noise].to(self.device)
+
+        #other format for diffusion
+        obs_perm = obs.permute((1,0,2)) # now N_ag x Tpred x 2
+
+        #convert position to velocity, the diffusion works on velocity
+        v_t = self.get_velocity(obs_perm).to(self.device) #x_T is veolity space
+
+        noisy_vel = v_t*alpha_t.sqrt() + (1 - alpha_t).sqrt()*torch.randn_like(v_t)
+
+        #get dynamics to intergrate
+        dynamics = self.model.encoder.node_models_dict[self.node_type].dynamic
+        #breakpoint()
+        noisy_obs = dynamics.integrate_samples(noisy_vel.unsqueeze(0)).squeeze(0) # Dynamics is expecting a batch of speed !!!!
+
+        #back in out format
+        noisy_obs = noisy_obs.permute((1,0,2)) # now Tpred(3) x N_ag x 2
 
         return noisy_obs, t_noise
 
@@ -581,7 +621,7 @@ class DiffDenoiser():
         return round((1-beta1-term)/(betaT-beta1)*num_step)
 
 
-    def denoise_trough_vel(self, t_noise, noisy_obs:torch.Tensor, context, stride=None, sampling="ddpm"):
+    def denoise_trough_vel(self, t_noise, noisy_obs:torch.Tensor, context, observation=None, stride=None, sampling="ddpm"):
         """
         params:
         -------
@@ -589,6 +629,8 @@ class DiffDenoiser():
         t_noise(int): timestep at which the noise (sigma) coresponds
         noisy_obs(torch.Tensor) :  must be in our format : Tpred x N_ag x 2 : IS THEPOSITION 
         context : encoding of the scene
+
+        observation : only given to plot
 
         """
         if stride == None:
@@ -606,8 +648,10 @@ class DiffDenoiser():
 
         #convert position to velocity, the diffusion works on velocity
         v_t = self.get_velocity(noisy_obs).to(self.device) #x_T is veolity space
-
         flexibility = 0.0
+
+        if observation is not None:
+                self.draw_denoise(v_t, observation, t_noise)
 
         #diffusion process
         for t in range(t_noise, 0, -stride):
@@ -633,12 +677,17 @@ class DiffDenoiser():
 
             v_t = v_next    # Stop gradient and save trajectory.
 
+            
+            if observation is not None:
+                self.draw_denoise(v_t, observation, t-1)
+
+
         #get the dynamic to integrate the velocity and retrieve position
         dynamics = self.model.encoder.node_models_dict[self.node_type].dynamic
         obs_denoised = dynamics.integrate_samples(v_t.unsqueeze(0)).squeeze(0) # Dynamics is expecting a batch of speed !!!!
 
         #back in out format
-        obs_denoised = obs_denoised.permute((1,0,2)) # now Tpred x N_ag x 2
+        obs_denoised = obs_denoised.permute((1,0,2)) # now Tpred(3) x N_ag x 2
         return obs_denoised
 
 
@@ -657,6 +706,35 @@ class DiffDenoiser():
             vy = torch.from_numpy(derivative_of(y, self.dt))
             vel.append(torch.stack((vx,vy), dim = 1))
         return torch.stack(vel, dim = 0)
+    
+    def draw_denoise(self, v_t, observation, t):
+        dynamics = self.model.encoder.node_models_dict[self.node_type].dynamic
+        obs_denoised = dynamics.integrate_samples(v_t.unsqueeze(0)).squeeze(0) # Dynamics is expecting a batch of speed !!!!
+        obs_denoised = obs_denoised.permute((1,0,2)) # now Tpred(3) x N_ag x 2
+
+        plt.clf()
+        t_noise = obs_denoised.shape[0]
+        nag = obs_denoised.shape[1]
+        for i_ag in range(nag):
+
+            if i_ag == 0:
+                plt.plot(observation[:-(t_noise), i_ag ,0], observation[:-(t_noise), i_ag ,1], c="k", markersize=3, marker='o', label="untouched")
+                plt.plot(observation[-(t_noise + 1):, i_ag ,0], observation[-(t_noise + 1):, i_ag ,1], c="grey", marker='o', markersize=3, label="will get noised")
+
+                # noisy_last_3_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), noisy_last_3_obs[:,0,:]), dim = 0)
+                # plt.plot(noisy_last_3_ag_0[:,0], noisy_last_3_ag_0[:,1], c="g", label="noised")
+                denoised_ag_0 = torch.concat((observation[-1-t_noise,0,:].unsqueeze(0), obs_denoised[:,0,:]), dim = 0)
+                plt.plot(denoised_ag_0[:,0], denoised_ag_0[:,1], c="cyan", label="denoised")
+                
+
+            else:
+                plt.plot(observation[:,i_ag,0], observation[:,i_ag,1], c="k")
+
+        plt.legend()
+        plt.savefig('out_bounds/gif_denoise/denoise_' + str(t) +'.png')
+
+        #breakpoint()
+
 
 
 def main():

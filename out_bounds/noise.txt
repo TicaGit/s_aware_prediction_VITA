@@ -1,0 +1,3 @@
+scene_id	sigma	r	noise_before	noise_after
+5	0.15	0.01	0.34160516	0.23289733
+6	0.15	0.01	0.36717072	0.32137665
