@@ -223,16 +223,14 @@ def main(epochs=10):
     #RANDOM IS FORCED l.146 + l.153
 
     
-    sample_size = args.sample_size #100 or 3146 for full
-    #sample_size = 2
+    sample_size = args.sample_size # 3146 for full
     time_noise_from_end = 3
     pred_length=args.pred_length #12
     collision_treshold = 0.2 #20cm
 
     #type of function evaluated
-    #function = "median1" #amongs: "mean", "median1", "median2", "compare"
+    #function = "median1" #amongs: "mean", "median1", "median2", "compare", "diffusion"
     function = args.function
-    #function = "compare"
     print("with:" , args.function)
 
     smth_bounds_model = SmoothBounds(model, device=args.device, 
@@ -247,36 +245,32 @@ def main(epochs=10):
 
     #breakpoint()
     #take a slice for test
+    all_data = all_data[:2]
     #all_data = all_data[17:19] #draw : 20, 222 for scenes
     #all_data = all_data[21:22]
-    #all_data = all_data[200:201] #many agent interactions
-    #idx = [246,852]
-    #all_data = [all_data[i] for i in idx]
-    #breakpoint()
+    #all_data = all_data[200:201]
 
     #custom
     # x = torch.stack((torch.linspace(-6,-3,9),torch.linspace(6,3,9)), dim = 1)
     # all_data = [(0, torch.stack((x,torch.zeros_like(x)), dim = 2), torch.zeros((2,2)))]
     
     #rs = [0.01, 0.05, 0.1] 
-    #sigmas = [0.05, 0.1, 0.23] #min ~sig = 10*r 0.23max for diffusion
+    #sigmas = [0.05, 0.1, 0.23] #min ~sig = 10*r, 0.23max for diffusion
     rs = [0.01]
     sigmas = [0.15]
     for r in rs:
         for sigma in sigmas:
-            # if r == 0.01 and sigma == 0.05:
-            #     continue #this config already done
             print(f"sigma: {sigma}, r: {r}")
+
             #predict bounds
             filename = "out_bounds/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
-            #filename = "out_bounds/on_sbatch_satt/temp_sig" + str(sigma) + "_r"+ str(r) + ".txt"
             all_mean_pred, all_bounds, all_real_pred = smth_bounds_model.compute_bounds_all(
                 all_data, filename, sigma, n0, r
             )
 
             #breakpoint()
             
-            num_draw = 0
+            num_draw = 2
             for j, (m_pred, b, r_pred) in enumerate(zip(all_mean_pred, all_bounds, all_real_pred)):
                 if j < num_draw:
                     if function == "mean":
@@ -289,10 +283,6 @@ def main(epochs=10):
                         filedraw = "out_bounds/diff_bb_sig_" + str(sigma) + "r_" + str(r) + "sc_" + str(all_data[j][0]) + "num_" + str(j) + '.png'        
                     draw_with_bounds(filedraw, m_pred, b[0], b[1], r_pred)
 
-    
-
-
-    
 
 if __name__ == '__main__':
     main()

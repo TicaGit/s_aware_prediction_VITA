@@ -17,12 +17,7 @@ from trajnetbaselines.lstm.lstm import drop_distant
 from trajnetbaselines.lstm.run import draw_one_tensor
 from trajnetbaselines.lstm.utils import seperate_xy, is_stationary, calc_fde_ade
 
-#from diffusion
 from  diffusion_bound_regression.MID_from_git.denoise_test import DataPreproc, DiffDenoiser
-
-#import diffusion_bound_regression.MID_from_git.models as models
-
-#from diffusion_bound_regression.MID_from_git.models.encoders.components.additive_attention import AdditiveAttention
 
 
 class SmoothBounds():
@@ -57,9 +52,9 @@ class SmoothBounds():
             self._init_difusion(t_clean = t_clean, t_noise = t_noise)
     
     def _init_difusion(self, t_clean, t_noise, dt = 0.4, node_type = "PEDESTRIAN"):
-        #only at begining
+        #model location
         model_path = "diffusion_bound_regression/MID_from_git/experiments/my_config_eval/eth_epoch60.pt"
-        #model_path = "eth_epoch60.pt"
+        #config location : must choose eval -> data_dir specified in this file
         config_path="diffusion_bound_regression/MID_from_git/configs/my_config_eval.yaml"
         with open(config_path) as f:
             config = yaml.safe_load(f)
@@ -74,7 +69,6 @@ class SmoothBounds():
         #instanciate diffusion denoiser object
         self.dd = DiffDenoiser(config = config, model_path = model_path, dt = dt, node_type = node_type,
                                device=self.device)
-        #breakpoint()
 
     def preprocess_scenes(self, scenes: list, goals:list, remove_static:bool = False):
         """
@@ -114,7 +108,6 @@ class SmoothBounds():
                     continue
 
             all_data.append((scene_id, scene, scene_goal))
-            #breakpoint()
             
         all_data = sorted(all_data, key=itemgetter(0))
         return all_data
@@ -134,7 +127,8 @@ class SmoothBounds():
         with open(filename, "w+") as f:
             f.write("scene_id\t" + "sigma\t" + "r\t" + "ade\t" + "fde\t" + "abd\t" + "fbd\n")
 
-        do_noise = True
+        #optional : generate noise data (norm)
+        do_noise = False
         if self.function == "diffusion" and do_noise:
             with open("out_bounds/noise.txt", "w+") as f:
                 f.write("scene_id\t" + "sigma\t" + "r\t" + "noise_before\t" + "noise_after\n" )
@@ -161,12 +155,12 @@ class SmoothBounds():
                                       batch_split, 
                                       n_predict=self.pred_length)
 
-            #breakpoint()
             #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
+            # real_pred is of lenght 21 -2, but the last 12 only are the real prediction (rest must be replace)
             #HERE STICHING TO MAKE LEN == 21
             real_pred = torch.cat((observed, real_pred[-self.pred_length:]))
     
-            #mean smoothing bounds computation
+            #main call : mean smoothing bounds computation
             mean_pred, bounds = self.compute_bounds_scene(observed, scene_goal, batch_split)
 
             if self.function == "diffusion" and do_noise:
@@ -181,26 +175,16 @@ class SmoothBounds():
 
             #compute metrics : scene IS ground truth
             fde, ade = calc_fde_ade(mean_pred[-self.pred_length:], scene[-self.pred_length:]) 
+
             #compute final/average box dimensions
             fbd, abd = calc_fbd_abd(bounds)
+
             log(filename, scene_id, self.sigma, self.r, ade, fde, abd, fbd)
 
             #record
             all_real_pred.append(real_pred)
             all_mean_pred.append(mean_pred)
             all_bounds.append(bounds)
-
-            
-
-
-            
-            
-
-            #IMPORTANT : replacing Tobs with real obs is done inside func
-            
-            #all_pred.append(pred) 
-            
-            #breakpoint()
 
         return all_mean_pred, all_bounds, all_real_pred
     
@@ -231,15 +215,11 @@ class SmoothBounds():
             (self.eval_eta(small_mp, small_low_b, small_up_b) - self.r)/self.sigma
         )
 
-        #breakpoint( )
-
         ub = small_low_b + (small_up_b-small_low_b)*norm.cdf(
             (self.eval_eta(small_mp, small_low_b, small_up_b) + self.r)/self.sigma
         )
 
         bounds = torch.stack((lb, ub), dim=0)
-
-        #breakpoint()
 
         return mean_pred, bounds
 
@@ -250,15 +230,14 @@ class SmoothBounds():
         Evaluate the function g(x) = E(f(denoise(x + eps))), where E is the expectation, f the model, 
         denoise the diffusion denoiser and eps~N(0,I*sig^2)
         """
-        # smallest_pred = [None, None]
-        # smallest_l2_norm = np.ones(self.num_classes) * np.inf
         
         with torch.no_grad():
-            #necessary to put first iter here 
+
 
             noise_before_mean = []
             noise_after_mean = []
 
+            #necessary to put first iter here 
             if diffusion:
                 outputs_perturbed, noise_before, noise_after = self._sample_noise_diffusion(observed.detach().clone(),
                                                                                             goal, batch_split, n=-1)
@@ -266,14 +245,11 @@ class SmoothBounds():
                 noise_after_mean.append(noise_after)
             else:
                 outputs_perturbed, noise = self._sample_noise(observed.detach().clone(), goal, batch_split, n=-1)
-            #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them
-            #outputs_perturbed = torch.cat((observed + noise, outputs_perturbed[-self.pred_length:]))
+            #IMPORTANT : model precicts for all t!=0, so even for the one given (observation) -> replace them, done in func
 
-            #breakpoint()
+            mean_pred = outputs_perturbed.clone() #clone ! #keep nan in mean
 
-            mean_pred = outputs_perturbed.clone() #clone ! #keep nan is mean
-
-            #remoove nans
+            #remove nans for min and max
             outputs_perturbed_neg10000 = outputs_perturbed.clone()
             pred_nan = torch.isnan(outputs_perturbed)
             for j in range(len(outputs_perturbed)):
@@ -287,12 +263,7 @@ class SmoothBounds():
             low_tot, _ = outputs_perturbed.view(-1, outputs_perturbed.shape[2]).min(axis=0)
             high_tot, _ = outputs_perturbed_neg10000.view(-1, outputs_perturbed_neg10000.shape[2]).max(axis=0)
 
-            #lx, ly = torch.min(outputs_perturbed, )
-            
-
-
             #visualize_scene(mean_pred)
-            #breakpoint()
 
             for n in range(num - 1):
                 #predict output
@@ -308,7 +279,8 @@ class SmoothBounds():
                 #outputs_perturbed = torch.cat((observed + noise, outputs_perturbed[-self.pred_length:]))
 
                 mean_pred += outputs_perturbed #keep nan is mean
-
+                
+                #remove nans for min and max
                 outputs_perturbed_neg10000 = outputs_perturbed.clone()
                 pred_nan = torch.isnan(outputs_perturbed)
                 for j in range(len(outputs_perturbed)):
@@ -326,16 +298,17 @@ class SmoothBounds():
 
 
             if self.function == "diffusion": 
+                #to plot the noise
                 self.noise_before_mean = np.array(noise_before_mean).mean()
                 self.noise_after_mean = np.array(noise_after_mean).mean()
 
 
-                #visualize_scene(outputs_perturbed)
-                #breakpoint()
+            #visualize_scene(outputs_perturbed)
 
+            #mean
             mean_pred /= num
 
-            #add a margin
+            #add a margin on u and l
             diff = high_tot - low_tot
             low_tot -= diff*self.bound_margin
             high_tot += diff*self.bound_margin
@@ -362,8 +335,6 @@ class SmoothBounds():
                 plt.savefig(f'out_bounds/all_noisy_trajs_{self.function}_gt.png')
 
                 breakpoint()
-
-
 
             return mean_pred, low_tot, high_tot
 
@@ -422,8 +393,6 @@ class SmoothBounds():
 
             low_tot = low_tot.repeat(median.shape[0], median.shape[1], 1)
             high_tot = high_tot.repeat(median.shape[0], median.shape[1], 1)
-
-            #breakpoint()
 
             #drawing
             if self.do_print:
@@ -518,14 +487,11 @@ class SmoothBounds():
             return median, low_tot, high_tot
 
 
-
-
-
-
     def eval_g_wrong_way(self, observed, goal, batch_split,  num):
         """
         WRONG : 
         Evaluate the function g(x) = E(f(x + eps)), where E is the expectation, f the model and eps~N(0,I*sig^2)
+        This is tighter bounds, but this is FALSE
         """
         # smallest_pred = [None, None]
         # smallest_l2_norm = np.ones(self.num_classes) * np.inf
@@ -587,6 +553,7 @@ class SmoothBounds():
             #stich the pred to real obs
             outputs_perturbed = torch.concat((observed, outputs_perturbed[-self.pred_length:,:,:]), dim = 0)
 
+            #plots
             if self.do_print:
                 nag = outputs_perturbed.shape[1]
                 for i_ag in range(nag):
@@ -596,9 +563,6 @@ class SmoothBounds():
                     pred_i = torch.concat((noisy_observation[-1,i_ag,:].unsqueeze(0), outputs_perturbed[-self.pred_length:,i_ag,:]), dim = 0)
                     if n == self.n0-2:
                         if i_ag == 0:
-                            #noisy_last_3_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), noisy_last_3_obs[:,0,:]), dim = 0)
-                            #plt.plot(noisy_last_3_ag_0[:,0], noisy_last_3_ag_0[:,1], c="g", label="noised")
-                            #noise_ag_0 = torch.concat((noisy_observation[6,0,:].unsqueeze(0), noisy_observation[-4:,0,:]), dim = 0)
                             plt.plot(noisy_observation[-4:,0,0], noisy_observation[-4:,0,1], linewidth=0.4, c="cyan", label="noised")
 
                             plt.plot(pred_i[:,0], pred_i[:,1], c="r", linewidth=0.4, label="prediction")
@@ -613,23 +577,10 @@ class SmoothBounds():
                         plt.legend()
                     else:
                         if i_ag == 0:
-                            
-                            
-
-                            #noisy_last_3_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), noisy_last_3_obs[:,0,:]), dim = 0)
-                            #plt.plot(noisy_last_3_ag_0[:,0], noisy_last_3_ag_0[:,1], c="g", label="noised")
-                            # denoised_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), denoised[:,0,:]), dim = 0)
-                            # plt.plot(denoised_ag_0[:,0], denoised_ag_0[:,1], linewidth=0.5, c="cyan")
                             plt.plot(noisy_observation[-4:,0,0], noisy_observation[-4:,0,1], linewidth=0.4, c="cyan")
 
                             plt.plot(pred_i[:,0], pred_i[:,1], c="r", linewidth=0.4)
-
-                            #plt.plot(obs_i[:,0], obs_i[:,1], c="k", markersize=3, marker='o')
-                            #plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="grey", marker='o', markersize=3)
-
                         else:
-                            #plt.plot(obs_i[:,0], obs_i[:,1], c="k")
-                            #plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="k")
                             plt.plot(pred_i[:,0], pred_i[:,1], linewidth=0.4, c="tomato")
                 #plt.savefig('out_bounds/all_noisy_trajs_mean.png')
                 #breakpoint()
@@ -685,24 +636,18 @@ class SmoothBounds():
 
         outputs_stiched = torch.concat((noisy_observation[:self._obs_length,:,:], outputs_perturbed[-self.pred_length:,:,:]))
 
-
-        #breakpoint()
-        #just print
-
+        #draw
         if self.do_print:
             #FALSE
             #plt.clf()
             nag = noisy_last_3_obs.shape[1]
             for i_ag in range(nag):
-                #breakpoint()
                 
                 obs_i = observation[:(self.t_clean + 1),i_ag,:]
                 obs_noise_i = last_3_obs[:,i_ag,:]
                 pred_i = torch.concat((noisy_observation[-1,i_ag,:].unsqueeze(0), outputs_perturbed[-self.pred_length:,i_ag,:]), dim = 0)
                 if n == self.n0-2:
                     if i_ag == 0:
-                        #noisy_last_3_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), noisy_last_3_obs[:,0,:]), dim = 0)
-                        #plt.plot(noisy_last_3_ag_0[:,0], noisy_last_3_ag_0[:,1], c="g", label="noised")
                         denoised_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), denoised[:,0,:]), dim = 0)
                         plt.plot(denoised_ag_0[:,0], denoised_ag_0[:,1], linewidth=0.4, c="cyan", label="denoised")
 
@@ -717,94 +662,18 @@ class SmoothBounds():
                         plt.plot(pred_i[:,0], pred_i[:,1], linewidth=0.4, c="tomato")
                 else:
                     if i_ag == 0:
-                        
-                        
-
-                        #noisy_last_3_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), noisy_last_3_obs[:,0,:]), dim = 0)
-                        #plt.plot(noisy_last_3_ag_0[:,0], noisy_last_3_ag_0[:,1], c="g", label="noised")
                         denoised_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), denoised[:,0,:]), dim = 0)
                         plt.plot(denoised_ag_0[:,0], denoised_ag_0[:,1], linewidth=0.4, c="cyan")
 
                         plt.plot(pred_i[:,0], pred_i[:,1], c="r", linewidth=0.4)
-
-                        #plt.plot(obs_i[:,0], obs_i[:,1], c="k", markersize=3, marker='o')
-                        #plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="grey", marker='o', markersize=3)
-
                     else:
-                        #plt.plot(obs_i[:,0], obs_i[:,1], c="k")
-                        #plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="k")
                         plt.plot(pred_i[:,0], pred_i[:,1], linewidth=0.4, c="tomato")
             
             #plt.legend()
             #plt.savefig('out_bounds/all_trajs.png')
-
-        #breakpoint()
+            #breakpoint()
 
         return outputs_stiched, noise_before, noise_after
-    
-        # other disposition : noise first
-        # observation_clean, present_node = self.data_prec.discard_nodes(observation, nodes) #discard 
-
-        # #add noise on all the agent, only the t_noise=3 last steps
-        # last_3_obs_clean = observation_clean[-self.t_noise:,:,:].clone().detach()
-        # noisy_last_3_obs_clean, t_coresp_noise = self.dd.noise_with_diff_on_vel(last_3_obs_clean, self.sigma)
-
-  
-        # #denoise them
-        # denoised_last_3_obs = self.dd.denoise_trough_vel(t_coresp_noise, noisy_last_3_obs_clean, context, observation=observation, sampling="ddim", stride = 1).cpu().detach()
-
-        # #put back the one that were denoised
-        # denoised = observation[-self.t_noise:,:,:].clone().detach()
-        # inserted = 0
-        # for i in range(denoised.shape[1]): #num agents
-        #     if str(i) in present_node:
-        #         denoised[:,i,:] = denoised_last_3_obs[:,inserted,:]
-        #         inserted += 1
-
-        # #we only want noise-deoise on the main agent, replace the other value by the original
-        # denoised[:,1:,:] = observation[-self.t_noise:,1:,:]
-
-        # #stich the t_clean=6 first and the rest
-        # noisy_observation = torch.concat((observation[:self.t_clean,:,:], denoised), dim=0)
-
-        # #run the model
-        # _, outputs_perturbed = self.model(
-        #     noisy_observation, goals, batch_split, n_predict=self.pred_length
-        # )
-
-        # outputs_stiched = torch.concat((noisy_observation[:self._obs_length,:,:], outputs_perturbed[-self.pred_length:,:,:]))
-
-
-        # #breakpoint()
-        # #just print
-        # do_print = True
-        # if do_print:
-        #     #FALSE
-        #     nag = observation.shape[1]
-        #     for i_ag in range(nag):
-
-                
-        #         obs_i = observation[:(self.t_clean + 1),i_ag,:]
-        #         obs_noise_i = observation[(self.t_clean):,i_ag,:]
-        #         pred_i = torch.concat((noisy_observation[-1,i_ag,:].unsqueeze(0), outputs_perturbed[-self.pred_length:,i_ag,:]), dim = 0)
-                
-        #         if i_ag == 0:
-        #             plt.plot(obs_i[:,0], obs_i[:,1], c="k", markersize=3, marker='o', label="untouched")
-        #             plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="grey", marker='o', markersize=3, label="will get noised")
-        #             plt.plot(pred_i[:,0], pred_i[:,1], c="r", label="prediction")
-
-        #             noisy_last_3_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), noisy_last_3_obs_clean[:,0,:]), dim = 0)
-        #             plt.plot(noisy_last_3_ag_0[:,0], noisy_last_3_ag_0[:,1], c="g", label="noised")
-        #             denoised_ag_0 = torch.concat((noisy_observation[-1-self.t_noise,0,:].unsqueeze(0), denoised[:,0,:]), dim = 0)
-        #             plt.plot(denoised_ag_0[:,0], denoised_ag_0[:,1], c="cyan", label="denoised")
-                    
-
-        #         else:
-        #             plt.plot(obs_i[:,0], obs_i[:,1], c="k")
-        #             plt.plot(obs_noise_i[:,0], obs_noise_i[:,1], c="k")
-        #             plt.plot(pred_i[:,0], pred_i[:,1], c="r")
-
-
 
     def eval_eta(self, g, l, u):
         return self.sigma*norm.ppf((g - l)/(u - l))
@@ -831,9 +700,6 @@ def visualize_scene(scene, goal=None):
 
 def calc_fbd_abd(bounds:torch.Tensor):
     lb, ub = bounds
-    # if bounds.isnan().any():
-    #     print("bounds is nan")
-    #     breakpoint()
 
     box_dims = ub - lb
     #mean dimension of all box of all agents
@@ -841,11 +707,6 @@ def calc_fbd_abd(bounds:torch.Tensor):
     #mean dimension of the FINAL box of all agents
     fbd = box_dims[-1].nanmean()
 
-    #col = 0
-    #iterate on time
-    # for low_t, high_t in zip(lb, ub):
-    #     if is_col
-    #breakpoint()
     return fbd.item(), abd.item()
 
 
