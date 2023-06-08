@@ -1,37 +1,26 @@
 # Certified trajectory prediction
 
-## Instalation (still need to check)
+## Installation
 
+To install the packages and libraries, type this command (you can create a conda venv if needed).
 ```
-cd blabla...
-pip install .
+pip install -e .
 ```
-carefull pip install -e . doesnt work (dont allow relative import ???)
-
-can run the the file from saeed + hossein : 
-on windows
+To run the script on Windows : 
 ```
-.\lrun.bat 
+.\run_exp.bat 
 ```
-or on linux
-```
-bash lrun.sh
-```
-
-can run the experience with :
-```
-.\run_exp.bat
-```
+on Linux, the scripts must be rewritten with .sh format
 
 ## Introduction 
 
 This readme file will introduce the reader to the work I've done with my project. 
 
-This project is about certified trajectory prediction. The goal is to find a certified model which is guaranteed to have bounded outputs given bounded input. If such a model exist, we are interested in knowing those bounds. <br>
-In this work, we will focus on trying to apply this concept on a trajectory prediction model. This is very important for self-driving tasks, where having garantees not to crash into an obstacle can be crucial. Particularly, we will use the social LSTM model [1] to predict the future from observation trajectories.
+This project is about certified trajectory prediction. The goal is to find a certified model which is guaranteed to have bounded outputs given bounded input. If such a model exists, we are interested in knowing those bounds. <br>
+In this work, we will focus on trying to apply this concept to a trajectory prediction model. This is very important for self-driving tasks, where having guarantees not to crash into an obstacle can be crucial. Particularly, we will use the social LSTM model [1] to predict the future from observation trajectories.
 
-At first, I've realized several experiement, to look for a promizing direction for this project. The experiments I've done will be briefly introduced here and more informations about those are contained in the coresponding .ipynb file. <br>
-The final experiement, which is the main topic of my project, have its theory discussed in this readme and its implementation aspects in the jupyter file.
+At first, I realized several experiment to look for a promising direction for this project. The experiments I've done will be briefly introduced here and more information about those are contained in the corresponding .ipynb file. <br>
+The final experiment, which is  my project's main topic, has its theory discussed in this readme and its implementation aspects in the jupyter file.
 
 ## Experiments (chronological)
 
@@ -39,75 +28,77 @@ The final experiement, which is the main topic of my project, have its theory di
 
 file: analyse/03_18_exp_noise/analyse_exp.ipynb
 
-This experiments add noise on the observation trajectory of **corupted** scenes (with the s-attack method). We then analyse the resulting prediction, in terms of colision.
+This experiment adds noise to the observation trajectory of **corrupted** scenes (with the s-attack method). We then analyse the resulting prediction, in terms of collision.<br>
+Mind that during the whole project, we will always only add noise on the **last 3 timesteps** of the observation trajectories.
 
 ### **Certification of trajectories** :
 
 file: analyse/03_25_zero_col_certif/my_analyze.ipynb
 
-This experiment has for goal to certify that a scene is collision free. With a maximum noise level, we can certify that the output of the "smoothed classifier" will be "no collision", for a particular scene.
+This experiment has for goal to certify that a scene is collision-free. With a maximum noise level, we can certify that the "smoothed classifier" output will be "no collision" for a particular scene.
 
 ### **Fde/ade under noise** :
 
 file: analyse/04_03_f_ade_zero_col_cert/analyse.ipynb
 
-This experiments shows the effect on the final predicted trajectory when noise is added on the observation.
+This experiment shows the effect on the final predicted trajectory when noise is added to the observation.
 
-### **WRONG : Zero colision predictor** :
+### **WRONG: Zero collision predictor** :
 
 file: analyse/04_07_all_data/analyse.ipynb
 
-This experiment is wrong and was latter redone. It has for goal to predict a colision-free scene, even if the original preditions would have had a colision.
+This experiment is wrong and was later redone. It has for goal to predict a collision-free scene, even if the original predictions would have had a collision.
 
-
-### **WRONG : Zero colision predictor v2** :
+### **WRONG: Zero collision predictor v2** :
 
 file: analyse/04_18_really_all_data_z_col_ade/analyse.ipynb
 
-This experiment is wrong and was latter redone. It has for goal to predict a colision-free scene, even if the original preditions would have had a colision.
+This experiment is wrong and was later redone. It has for goal to predict a collision-free scene, even if the original predictions would have had a collision.
 
-### **Analyse of data, colision rate and ade/fde**
+### **Analyse of data, collision rate and ade/fde**
 
 file: analyse/04_24_secret_v2/analyse_04_24.ipynb
 
-Having seen that the 2 previous experiements did not showcase the correct numbers, I was wondering if something was wrong with the preprocessing of the scenes or the prediction pipeline. In this file, I tried to find those problems.
+Having seen that the 2 previous experiments did not showcase the correct numbers, I was wondering if something was wrong with the preprocessing of the scenes or the prediction pipeline. In this file, I tried to find those problems.
 
 ### **Analyse of data, IA crowd check**
 
 file: analyse/04_25_no_noise_clean/analyse_04_25.ipynb
 
-In this experiment, I am doing the last data check. I try many combinaison of preprocessing options, to see wich one coresponds to the correct numbers. I also did on IA crowd submission to verify the numbers. In this file, I explain that there exists another definition for colision, and that the number I was trying to get corespond to a specific type of scenes.
+In this experiment, I am doing the last data check. I try many combination of preprocessing options, to see which one corresponds to the correct numbers. I also did an IA crowd submission to verify the numbers. In this file, I explain that there exists another definition for collision and that the number I was trying to get corresponds to a specific type of scene.
 
-### **RIGHT : Zero colision predictor v3** :
+### **RIGHT: Zero collision predictor v3** :
 
-file : analyse/04_26_redo_0_col_pred/analyse_04_26.ipynb
+file: analyse/04_26_redo_0_col_pred/analyse_04_26.ipynb
 
-Now that the corect way of handling NaN values is understood, we can repeat the experiment of the zero-predictor. It has for goal to predict a colision-free scene, even if the original preditions would have had a colision.
+Now that the correct way of handling NaN values is understood, we can repeat the experiment of the zero-predictor. It has for goal to predict a collision-free scene, even if the original predictions would have had a collision.
 
-### ** Bounded trajectory regression ** :
+### **Bounded trajectory regression** :
 
 file : analyse/05_08_bounds/analyse_08_may.ipynb
 
-This experimement is the main topic of my project. Given a maximal perturbation radius, we show that each coordinate of a predicted trajectory can be bounded. The theory behind this experiement is explained in the following section. 
-We tested different type of functions to "sumarize" the 100 noisy trajectories drawn: the mean and 2 type of median. Finally, a diffusion denoiser was also implemented to reduce the variance of the noise added.
+This experiment is the main topic of my project. Given a maximal perturbation radius, we show that each coordinate of a predicted trajectory can be bounded. The theory behind this experiment is explained in the following section. 
+We tested different types of functions to "summarize" the 100 noisy trajectories drawn: the mean and 2 types of medians. Finally, a diffusion denoiser was also implemented to reduce the variance of the noise added.
 
 ## Theory of **Bounded trajectory regression**
 
 ### Randomized smoothing 
 
-The initial idea of randomized smoothing was initially design for a classification problem, and was presented in [2]. It consists of adding noise (of known $\sigma$) on an input and recording the prediction. By repeating this process with a Monte-Carlo sampling process, we could then establish garantees on the prediction of the model, given the magnitude of the perburbation.
+The initial idea of randomized smoothing was initially designed for a classification problem and was presented in [2]. It consists of adding noise (of known $\sigma$) on an input and recording the prediction. By repeating this process with a Monte-Carlo sampling process, we could then establish guarantees on the prediction of the model, given the magnitude of the perturbation.
 
 This idea was then modified to fit a regression problem in [3]. In this work, we will use the formulation of [4], which is equivalent.<br> 
 Given a base regression function $f(x): \mathbb{R}^N \mapsto \mathbb{R}$, we define the smooth classifier g(x) being the expectation of f(x) under a certain noise level, as in (1). Then, (2) holds if we can find the bounds $l$ and $u$ for the regressor. Throughout, we use $\phi(x)$  to denote the
-cumulative distribution function (CDF) of the standard Guassian distribution.
+cumulative distribution function (CDF) of the standard Gaussian distribution.
 
-![mean_smooth_regr](./figures_readme/mean_smoothing_formulla.png)
+<p align="center">
+    <img src="./figures_readme/mean_smoothing_formulla.png"  height="100">
+</p>
 
 ### Diffusion denoised smoothing
 
-Diffusion denoised smoothing is a technique that improoves upon randomized smoothing. After the noising step, a diffusion denoising process is applied on the input, to reduce the overall variance and have better predictions. The idea behind this method, is to drown the eventual adversarial perturbation into random, and then to denoise the signal to recover the original.
+Diffusion-denoised smoothing is a technique that improves upon randomized smoothing. After the noising step, a diffusion denoising process is applied to the input, to reduce the overall variance and have better predictions. The idea behind this method is to drown the eventual adversarial perturbation into random noise, and then to denoise the signal to recover the original.
 
-The noise distribution at each timestep in probabilistic diffusion model is given by the scheduler $\alpha(t) = \alpha_t$. To match the desired noise level $\sigma$, one must first find the coresponding timestep $t^*$.
+The noise distribution at each timestep in the probabilistic diffusion model is given by the scheduler $\alpha(t) = \alpha_t$. To match the desired noise level $\sigma$, one must first find the corresponding timestep $t^*$.
 
 <p align="center">
     <img src="./figures_readme/coresp_sig_alpha.png"  height="50">
@@ -126,25 +117,30 @@ This will simulate a noisy sample at a time $t^*$ of a diffusion process. We can
     <img src="./figures_readme/denoise_diff.png"  height="50">
 </p>
 
-Once those step is done, one can proceed with the Monte Carlo sampling, to estimate $\mathop{\mathbb{E}}[f\circ h_{denoise}(x+\epsilon)],~ \epsilon \sim \mathcal{N}(0,\,\sigma^{2})$.
+Once those steps are done, one can proceed with the Monte Carlo sampling, to estimate $\mathop{\mathbb{E}}[f\circ h_{denoise}(x+\epsilon)],~ \epsilon \sim \mathcal{N}(0,\,\sigma^{2})$.
 
+## Conclusion & future work
 
+With the experiment **Bounded trajectory regression**, we saw that we can indeed obtain bounds, given a maximal imput size. We demonstrated how the theory, initially thought for "certified object detection", can be extended to another regression problem: trajectory prediction. We then showed how this process could be improoved with diffusion denoised smoothing, and how tigher the bounds are compared to just using the mean of the raw predictior.<br>
+These bounds however are rather loose. Here are some idea that could results in tighting those.
 
+- Investigate on diffusion. The diffusion denoising is applied on the velocity. Maybe directly applying it on the position could results in less numerical approximation (integration) and faster computation speed.
 
+- Regarding the formulla to compute the bounds, we were forced to choose really large prior bounds $l$ and $u$. One can easilly see that this is not optimal, and I personnally think that find a way to tightning those, coordinate-wise, could lead to better results. 
+
+- We chose to apply noise only on the last 3 timesteps. As the formulla used expects noise on the whole input, our choice was more constrained. Thus, there should be a way to tighten the bounds base on this fact.
+
+- Another path to explore could be the Median Smoothing theory, introduced in [4]. They propose another formulla, without the need of formulating the prior bounds $l$ and $u$.
+
+There is still a lot to do, but this work contains an implementation basis and is a working proof-of-concept.
 
 ## Code 
 
-cite 6 + git, github of cohen
-cite sattack
+This repo was originally cloned from the [s-attack repo](https://github.com/vita-epfl/s-attack).
 
+Most of the code inside the *random_smooth* folder is inspired by the [smoothing repo](https://github.com/locuslab/smoothing) of locuslab.
 
-
-
-
-<!-- <p align="center">
-    <img src="./figures_readme/denoising_scene_20.gif"  width="600">
-</p> -->
-
+For the diffusion part, I used the code of [MID repo](https://github.com/gutianpei/MID) and stiched some part together to acheive the denoising.
 
 ## Bibliography
 
