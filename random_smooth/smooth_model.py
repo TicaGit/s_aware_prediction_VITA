@@ -17,7 +17,7 @@ from trajnetbaselines.lstm.utils import seperate_xy, is_stationary, calc_fde_ade
 
 
 class Smooth(object):
-    """A smoothed classifier g """
+    """A smoothed classifier g, according to theory in Cohen and al. """
 
     # to abstain, Smooth returns this int
     ABSTAIN = -1
@@ -32,9 +32,17 @@ class Smooth(object):
                  obs_length = 9,
                  ):
         """
-        :param base_classifier: maps from [batch x channel x height x width] to [batch x num_classes]
-        :param num_classes:
-        :param sigma: the noise level hyperparameter
+        Create the object.
+
+        params:
+        -------
+        slstm(torch.nn.Module) : the slstm model
+        device(torch.device) : device to compute on
+        sample_size(int) : number of scene to use for computation
+        time_noise_from_end(int) : number of timestep to apply noise on, starting from the end.
+        pred_length(int) : lenght of the predicted trajectories
+        collision_treshold(float) :  distance from which we consider that a collision occured
+        obs_length(int) : lenght of the observed trajectories
         """
         self.slstm = slstm
         self.slstm.eval()
@@ -49,10 +57,17 @@ class Smooth(object):
 
     def preprocess_scenes(self, scenes: list, goals:list, remove_static = False):
         """
-        
-        return
-        ------
-        :all_data: a list of tuple containing each scenes infos
+        Process the scenes with the trajnetpluplus reader.
+
+        params:
+        -------
+        scenes(list) : list of the scene's trajectories
+        goals(list) : list of the scene's goals
+        remove_static(bool) : if static agents must be removed
+
+        return:
+        -------
+        all_data(list) : a list of tuple containing each scenes infos
         """
         #first preprocess the scenes
         all_data = []
@@ -96,7 +111,17 @@ class Smooth(object):
                     sigma:int, n0: int, n: int, 
                     alpha: float):
         """
-        cerfify all scenes
+        cerfify all scenes, according to the thoery. A scene is certified if its 
+        noisy predictions have >50% the outcome "collision-free".
+
+        params:
+        -------
+        all_data(list) : list with all the data to compute the bounds on.
+        filename_results(str) : filename to store the results
+        sigma(float) : noise level (std)
+        n0(int) : number of resampling for the Monte-Carlo process, for the prediction
+        n(int) : number of resampling for the Monte-Carlo process, for the certification
+        alpha(float) : desired confidence level
         """
         self.n0 = n0
         self.n = n
@@ -125,10 +150,19 @@ class Smooth(object):
         """
         predict for all scenes
 
+        params:
+        -------
+        all_data(list) : list with all the data to compute the bounds on.
+        filename_results(str) : filename to store the results
+        sigma(float) : noise level (std)
+        n0(int) : number of resampling for the Monte-Carlo process, for the prediction
+        alpha(float) : desired confidence level
+        PREDICTION_MODE(str) : mode of prediction, between "majority" or "just_one"
+
         returns
         -------
-        :all_pred : list of tensors (Tobs+Tpred) x N_agent x 2) : closest noisy prediction
-        :all_real_pred : list of tensors (Tobs+Tpred) x N_agent x 2) : raw input prediction (for comparison)
+        all_pred(list[Tensors: (Tobs+Tpred) x N_agent x 2]) : closest noisy prediction
+        all_real_pred(list[Tensors: (Tobs+Tpred) x N_agent x 2]) : raw input prediction (for comparison)
         """
         self.n0 = n0
         self.alpha = alpha
@@ -183,24 +217,26 @@ class Smooth(object):
             #IMPORTANT : replacing Tobs with real obs is done inside func
             
             all_pred.append(pred) 
-            
-            #breakpoint()
 
         return all_pred, all_real_pred
 
 
     def certify_scene(self, xy: torch.tensor, goals: torch.tensor, batch_split):
-        """ Monte Carlo algorithm for certifying that g's prediction around x is constant within some L2 radius.
+        """ 
+        Monte Carlo algorithm for certifying that g's prediction around x is constant within some L2 radius.
         With probability at least 1 - alpha, the class returned by this method will equal g(x), and g's prediction will
         robust within a L2 ball of radius R around x.
 
-        :param x: the input [channel x height x width]
-        :param n0: the number of Monte Carlo samples to use for selection
-        :param n: the number of Monte Carlo samples to use for estimation
-        :param alpha: the failure probability
-        :param batch_size: batch size to use when evaluating the base classifier
-        :return: (predicted class, certified radius)
-                 in the case of abstention, the class will be ABSTAIN and the radius 0.
+        params:
+        -------
+        xy(torch.Tensor) : tensor with the scene's observed trajectories, T x Nag x 2
+        goal(torch.Tensor) : tensor with the scene's goals, Nag x 2
+        batch_split : param used by s-lstm
+
+        returns:
+        --------
+        dominant_class(int) : if the scene is certified collision-free(0) or with collision(1)
+        radius(float) : radius R for which the scene is certified collision-free
         """
 
         observed = xy[:self._obs_length].clone()
@@ -233,17 +269,24 @@ class Smooth(object):
         
 
     def predict_scene(self, xy: torch.tensor, goals: torch.tensor, batch_split):
-        """ Monte Carlo algorithm for evaluating the prediction of g at x.  With probability at least 1 - alpha, the
+        """ 
+        Monte Carlo algorithm for evaluating the prediction of g at x.  With probability at least 1 - alpha, the
         class returned by this method will equal g(x).
 
         This function uses the hypothesis test described in https://arxiv.org/abs/1610.03944
         for identifying the top category of a multinomial distribution.
 
-        :param x: the input [channel x height x width]
-        :param n: the number of Monte Carlo samples to use
-        :param alpha: the failure probability
-        :param batch_size: batch size to use when evaluating the base classifier
-        :return: the predicted class, or ABSTAIN
+        params:
+        -------
+        xy(torch.Tensor) : tensor with the scene's observed trajectories, T x Nag x 2
+        goal(torch.Tensor) : tensor with the scene's goals, Nag x 2
+        batch_split : param used by s-lstm
+
+        returns:
+        --------
+        dominant_class(int) : if the scene is certified collision-free(0) or with collision(1)
+        prediction(torch.Tensor) : one of the noisy prediction, the one with the smallest noise on the input
+        noise_norm(float) : the norm of the noise of the smallest prediction
         """
 
         #reduce to Tobs
@@ -272,7 +315,19 @@ class Smooth(object):
 
     def predict_scene_no_col(self, xy: torch.tensor, goals: torch.tensor, batch_split):
         """
-        just return a traf without colisions
+        Just run n0 time, and return a traj without colision (if one was found)
+
+        params:
+        -------
+        xy(torch.Tensor) : tensor with the scene's observed trajectories, T x Nag x 2
+        goal(torch.Tensor) : tensor with the scene's goals, Nag x 2
+        batch_split : param used by s-lstm
+
+        returns:
+        --------
+        dominant_class(int) : if collision-free(0) noisy realisation was found or not(1)
+        prediction(torch.Tensor) : one of the noisy prediction, the one with the smallest noise on the input
+        noise_norm(float) : the norm of the noise of the smallest prediction
         """
         observed = xy[:self._obs_length].clone()
 
@@ -297,18 +352,19 @@ class Smooth(object):
         
 
     def get_certify_counts(self, observed: torch.tensor, goals: torch.tensor, batch_split, num):
-        """ Sample the base classifier's prediction under noisy corruptions of the input x.
+        """ 
+        Sample the base classifier's prediction under noisy corruptions of the input x.
 
-        :param x: the input [channel x width x height]
-        :param num: number of samples to collect
-        :param batch_size:
-        :return: an ndarray[int] of length num_classes containing the per-class counts
+        params:
+        -------
+        observed(torch.Tensor) : tensor with the scene's observed trajectories, T x Nag x 2
+        goals(torch.Tensor) : tensor with the scene's goals, Nag x 2
+        batch_split : param used by s-lstm
+        num(int) : the number of time to sample
+
+        returns:
+        counts(np.array) : counts of each class "collision-free", "with colision"
         """
-
-        #use code of add_noise_on_perturbed
-
-        #return [nocol, col]
-
         with torch.no_grad():
             counts = np.zeros(self.num_classes, dtype=int)
             print_every = 100
@@ -335,17 +391,21 @@ class Smooth(object):
         
 
     def get_predicted_counts(self, observed: torch.tensor, goals: torch.tensor, batch_split, num):
-        """ Sample the base classifier's prediction under noisy corruptions of the input x.
-
-        :param x: the input [channel x width x height]
-        :param num: number of samples to collect
-        :param batch_size:
-        :return: an ndarray[int] of length num_classes containing the per-class counts
         """
+        Sample the base classifier's prediction under noisy corruptions of the input x.
 
-        #use code of add_noise_on_perturbed
+        params:
+        -------
+        observed(torch.Tensor) : tensor with the scene's observed trajectories, T x Nag x 2
+        goals(torch.Tensor) : tensor with the scene's goals, Nag x 2
+        batch_split : param used by s-lstm
+        num(int) : the number of time to sample
 
-        #return [nocol, col]
+        returns:
+        counts(np.array) : counts of each class "collision-free", "with colision"
+        smallest_pred(torch.Tensor) : one of the noisy prediction, the one with the smallest noise on the input
+        smallest_l2_norm(float) : the norm of the noise of the smallest prediction
+        """
 
         smallest_pred = [None, None]
         smallest_l2_norm = np.ones(self.num_classes) * np.inf
@@ -389,6 +449,16 @@ class Smooth(object):
     def _sample_noise(self, observed: torch.tensor, goals: torch.tensor, batch_split):
         """
         produce a output from a noisy version on input
+
+        params:
+        -------
+        observed(torch.Tensor) : tensor with the scene's observed trajectories, T x Nag x 2
+        goals(torch.Tensor) : tensor with the scene's goals, Nag x 2
+        batch_split : param used by s-lstm
+
+        returns:
+        outputs_perturbed(torch.Tensor) : the predictions
+        noise (torch.Tensor) : the noise added on the observation
         """
         with torch.no_grad():
             if self.sigma != 0.0:

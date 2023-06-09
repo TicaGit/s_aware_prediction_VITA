@@ -19,8 +19,8 @@ This readme file will introduce the reader to the work I've done with my project
 This project is about certified trajectory prediction. The goal is to find a certified model which is guaranteed to have bounded outputs given bounded input. If such a model exists, we are interested in knowing those bounds. <br>
 In this work, we will focus on trying to apply this concept to a trajectory prediction model. This is very important for self-driving tasks, where having guarantees not to crash into an obstacle can be crucial. Particularly, we will use VITA's social-LSTM model [1] to predict the future from observation trajectories.
 
-At first, I realized several experiments to look for a promising direction for this project. The experiments I've done are briefly introduced below and more information are provided in the corresponding .ipynb file. <br>
-The final experiment, which is  my project's main topic, has its theory discussed in this readme and its implementation aspects in the jupyter file.
+At first, I realized several experiments to look for a promising direction for this project. The experiments I've done are briefly introduced below and more information is provided in the corresponding .ipynb file. <br>
+The final experiment, which is my project's main topic, has its theory discussed in this readme and its implementation aspects in the Jupyter file.
 
 ## Experiments (chronological)
 
@@ -29,7 +29,7 @@ The final experiment, which is  my project's main topic, has its theory discusse
 file: analyse/03_18_exp_noise/analyse_exp.ipynb
 
 This experiment adds noise to the observation trajectory of **corrupted** scenes (with the s-attack method). We then analyse the resulting prediction, in terms of collision.<br>
-Mind that during the whole project, we will always only add noise on the **last 3 timesteps** of the observation trajectories.
+Mind that during the whole project, we will always only add noise on the **last 3 timesteps** of the observed trajectories.
 
 <p align="center">
     <img src="./figures_readme/exp_03_18.png"  height="300">
@@ -73,7 +73,7 @@ Having seen that the 2 previous experiments did not showcase the correct numbers
 
 file: analyse/04_25_no_noise_clean/analyse_04_25.ipynb
 
-In this experiment, I am doing the last data check. I try many combination of preprocessing options, to see which one corresponds to the correct numbers. I also did an IA crowd submission to verify the numbers. In this file, I explain that there exists another definition for collision and that the number I was trying to get corresponds to a specific type of scene.
+In this experiment, I am doing the last data check. I try many combinations of preprocessing options, to see which one corresponds to the correct numbers. I also did an IA crowd submission to verify the numbers. In this file, I explain that there exists another definition for collision and that the number I was trying to get corresponds to a specific type of scene.
 
 <p align="center">
     <img src="./figures_readme/IA_crowd_sub.png"  height="300">
@@ -92,7 +92,7 @@ Now that the correct way of handling NaN values is understood, we can repeat the
 
 ### **Bounded trajectory regression** :
 
-file : analyse/05_08_bounds/analyse_08_may.ipynb
+file: analyse/05_08_bounds/analyse_08_may.ipynb
 
 This experiment is the main topic of my project. Given a maximal perturbation radius, we show that each coordinate of a predicted trajectory can be bounded. The theory behind this experiment is explained in the following section. 
 We tested different types of functions to "summarize" the 100 noisy trajectories drawn: the mean and 2 types of medians. Finally, a diffusion denoiser was also implemented to reduce the variance of the noise added.
@@ -167,9 +167,9 @@ There is still a lot to do, but this work contains an implementation basis and i
 
 This repo was originally cloned from the [s-attack repo](https://github.com/vita-epfl/s-attack).
 
-Most of the code inside the *random_smooth* folder is inspired by the [smoothing repo](https://github.com/locuslab/smoothing) of locuslab.
+Most of the code inside the *random_smooth* folder is inspired by the [smoothing repo](https://github.com/locuslab/smoothing) of Locuslab.
 
-For the diffusion part, I used the code of [MID repo](https://github.com/gutianpei/MID) and stiched some part together to acheive the denoising.
+For the diffusion part, I used the code of [MID repo](https://github.com/gutianpei/MID) and stitched some parts together to achieve the denoising.
 
 ## Bibliography
 

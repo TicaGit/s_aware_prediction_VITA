@@ -42,7 +42,6 @@ class SmoothBounds():
 
         params:
         -------
-
         model(torch.nn.Module) : the model
         device(torch.device) : device to compute on
         sample_size(int) : number of scene to use for computation
