@@ -21,11 +21,14 @@ from  diffusion_bound_regression.MID_from_git.denoise_test import DataPreproc, D
 
 
 class SmoothBounds():
+    """
+    Class for the "certified model". Uses the given model and compute its expectation under noise
+    """
     def __init__(self, 
                  model: torch.nn.Module,
                  device = torch.device('cpu'), 
                  sample_size:int=70,
-                 time_noise_from_end:int=0,
+                 time_noise_from_end:int=3,
                  pred_length = 12,
                  collision_treshold = 0.2,
                  obs_length = 9,
@@ -34,6 +37,24 @@ class SmoothBounds():
                  bound_margin = 0.2,
                  function = "mean"
                  ) -> None:
+        """
+        Create the object.
+
+        params:
+        -------
+
+        model(torch.nn.Module) : the model
+        device(torch.device) : device to compute on
+        sample_size(int) : number of scene to use for computation
+        time_noise_from_end(int) : number of timestep to apply noise on, starting from the end.
+        pred_length(int) : lenght of the predicted trajectories
+        collision_treshold(float) :  distance from which we consider that a collision occured
+        obs_length(int) : lenght of the observed trajectories
+        t_clean(int) : part of the observation trajectories we dont add noise on
+        t_noise(int) : part of the observation trajectories we add noise on (must be obs_length-t_clean)
+        bound_margin(float) : when defining l and u, how much % of margin to add.
+        function(string): type of expectation calculation, from "mean", "median1", "median2", "diffusion"
+        """
         self.model = model
         self.model.eval()
         self.device = device
@@ -52,6 +73,9 @@ class SmoothBounds():
             self._init_difusion(t_clean = t_clean, t_noise = t_noise)
     
     def _init_difusion(self, t_clean, t_noise, dt = 0.4, node_type = "PEDESTRIAN"):
+        """
+        only init for the diffusion, create the objects
+        """
         #model location
         model_path = "diffusion_bound_regression/MID_from_git/experiments/my_config_eval/eth_epoch60.pt"
         #config location : must choose eval -> data_dir specified in this file
@@ -72,10 +96,17 @@ class SmoothBounds():
 
     def preprocess_scenes(self, scenes: list, goals:list, remove_static:bool = False):
         """
-        
-        return
-        ------
-        :all_data: a list of tuple containing each scenes infos
+        Process the scenes with the trajnetpluplus reader.
+
+        params:
+        -------
+        scenes(list) : list of the scene's trajectories
+        goals(list) : list of the scene's goals
+        remove_static(bool) : if static agents must be removed
+
+        return:
+        -------
+        all_data(list) : a list of tuple containing each scenes infos
         """
         #first preprocess the scenes
         all_data = []
@@ -118,7 +149,21 @@ class SmoothBounds():
                            sigma:float, 
                            n0:int, 
                            r:float,
-                           ) -> list:
+                           ):
+        """
+        take all the data and computes the bounds for each scenes.
+
+        params:
+        -------
+        all_data(list) : list with all the data to compute the bounds on.
+        filename(str) : filename to store the results
+        sigma(float) : noise level (std)
+        n0(int) : number of resampling for the Monte-Carlo process
+        r(float) : radius of maximal perturbation size (constrain)
+
+        returns:
+        tuple(list, list, list) : tuple with the lists of the mean predictions, bounds, and real predictions.
+        """
         
         self.n0 = n0
         self.r = r
@@ -192,6 +237,14 @@ class SmoothBounds():
         """
         computes the bounds according to corolary 2, eq9 in median smothing paper 
         note : this bound are based on the MEAN (not median)
+
+        params:
+        -------
+
+        observed(torch.Tensor) : tensor with the scene's observed trajectories, T x Nag x 2
+        goal(torch.Tensor) : tensor with the scene's goals, Nag x 2
+        batch_split : param used by s-lstm
+
         """
         if self.function == "mean":
             mean_pred, low_b, up_b = self.eval_g(observed, goal, batch_split, self.n0, diffusion=False)
@@ -229,6 +282,14 @@ class SmoothBounds():
         of if diffusion = True
         Evaluate the function g(x) = E(f(denoise(x + eps))), where E is the expectation, f the model, 
         denoise the diffusion denoiser and eps~N(0,I*sig^2)
+
+        params:
+        -------
+        observed(torch.Tensor) : tensor with the scene's observed trajectories, T x Nag x 2
+        goal(torch.Tensor) : tensor with the scene's goals, Nag x 2
+        batch_split : param used by s-lstm
+        num(int) : number of resampling of the Monte Carlo process.
+        diffusion(bool) : whether or not to perform diffusion denoising
         """
         
         with torch.no_grad():
@@ -342,6 +403,13 @@ class SmoothBounds():
         """
         returns the median1 instead of the mean, bounds are the same. 
         Median of type 1 is the real noisy traj that best represents the median
+
+        params:
+        -------
+        observed(torch.Tensor) : tensor with the scene's observed trajectories, T x Nag x 2
+        goal(torch.Tensor) : tensor with the scene's goals, Nag x 2
+        batch_split : param used by s-lstm
+        num(int) : number of resampling of the Monte Carlo process.
         """
         with torch.no_grad():
             noisy_preds = []
@@ -421,6 +489,13 @@ class SmoothBounds():
         """
         returns the median2 instead of the mean, bounds are the same. 
         Median of type 2 is the artififial traj that has the midian of all coordinates.
+
+        params:
+        -------
+        observed(torch.Tensor) : tensor with the scene's observed trajectories, T x Nag x 2
+        goal(torch.Tensor) : tensor with the scene's goals, Nag x 2
+        batch_split : param used by s-lstm
+        num(int) : number of resampling of the Monte Carlo process.
         """
         with torch.no_grad():
             noisy_preds = []
@@ -491,7 +566,7 @@ class SmoothBounds():
         """
         WRONG : 
         Evaluate the function g(x) = E(f(x + eps)), where E is the expectation, f the model and eps~N(0,I*sig^2)
-        This is tighter bounds, but this is FALSE
+        This gives tighter bounds, but this is FALSE
         """
         # smallest_pred = [None, None]
         # smallest_l2_norm = np.ones(self.num_classes) * np.inf
@@ -533,6 +608,13 @@ class SmoothBounds():
     def _sample_noise(self, observed: torch.tensor, goals: torch.tensor, batch_split, n=None):
         """
         produce a output from a noisy version on input
+
+        params:
+        -------
+        observed(torch.Tensor) : tensor with the scene's observed trajectories, T x Nag x 2
+        goal(torch.Tensor) : tensor with the scene's goals, Nag x 2
+        batch_split : param used by s-lstm
+        n(int) : the current iteration of the Monte Carlo resampling process, only used for plotting
         """
         with torch.no_grad():
             if self.sigma != 0.0:
@@ -589,9 +671,14 @@ class SmoothBounds():
         
     def _sample_noise_diffusion(self, observed: torch.Tensor, goals: torch.Tensor, batch_split, n=None):
         """
-        produce a output from a noisy version on input, but denoise it with diffusion$
+        produce a output from a noisy version on input, but denoise it with diffusion.
 
-        n(int) : only for plotting purposes
+        params:
+        -------
+        observed(torch.Tensor) : tensor with the scene's observed trajectories, T x Nag x 2
+        goal(torch.Tensor) : tensor with the scene's goals, Nag x 2
+        batch_split : param used by s-lstm
+        n(int) : the current iteration of the Monte Carlo resampling process, only used for plotting
         """
         observation = observed.clone()
 
@@ -676,6 +763,9 @@ class SmoothBounds():
         return outputs_stiched, noise_before, noise_after
 
     def eval_eta(self, g, l, u):
+        """
+        evaluate the function named eta in the theory
+        """
         return self.sigma*norm.ppf((g - l)/(u - l))
     
     def eval_eta_with_resampling(self, observed, goal, batch_split,  num):
@@ -688,6 +778,9 @@ class SmoothBounds():
 
 #helper functions
 def visualize_scene(scene, goal=None):
+    """
+    plots the given scene (tensor)
+    """
     for t in range(scene.shape[1]):
         path = scene[:, t]
         plt.plot(path[:, 0], path[:, 1])
@@ -699,6 +792,11 @@ def visualize_scene(scene, goal=None):
 
 
 def calc_fbd_abd(bounds:torch.Tensor):
+    """
+    Compute the averaged/final box dimension.
+
+    Maybe it would be more corect to only consider the main agent's bounding box
+    """
     lb, ub = bounds
 
     box_dims = ub - lb

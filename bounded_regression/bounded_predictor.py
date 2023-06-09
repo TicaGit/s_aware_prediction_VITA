@@ -250,7 +250,7 @@ def main(epochs=10):
     #all_data = all_data[21:22]
     #all_data = all_data[200:201]
 
-    #custom
+    #custom facing each other
     # x = torch.stack((torch.linspace(-6,-3,9),torch.linspace(6,3,9)), dim = 1)
     # all_data = [(0, torch.stack((x,torch.zeros_like(x)), dim = 2), torch.zeros((2,2)))]
     
